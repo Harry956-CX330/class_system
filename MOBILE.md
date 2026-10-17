@@ -4,7 +4,7 @@
 
 ## Android APK
 
-推送 main 的客户端更新会触发 **Android APK** 工作流。在 GitHub Actions 成功运行的 Artifacts 中下载 `class-system-android-debug`，解压得到 `app-debug.apk` 后传到手机安装。默认连接 `http://8.163.67.49:8000`，HTTP 明文仅放行这一主机。大文件建议使用手机浏览器下载；网页版持续可用。
+推送 main 的客户端更新会触发 **Android APK** 工作流。在 GitHub Actions 成功运行的 Artifacts 中下载 `class-system-android-debug`，解压得到 `app-debug.apk` 后传到手机安装。默认连接 `http://8.163.67.49:8000`，HTTP 明文仅放行这一主机。文件任务和资料的下载使用限时票据交给系统浏览器，避免 WebView 缓冲大文件；网页版持续可用。
 
 产物为调试签名包。CI 临时调试密钥可能变化，更新安装时可能需要卸载旧包。正式分发应使用固定私有 release keystore，通过 Secrets 或本地安全存储注入，勿提交密钥。修改服务器地址后需重新构建。
 

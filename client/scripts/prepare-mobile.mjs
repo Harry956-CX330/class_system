@@ -20,9 +20,44 @@ if (platform === 'android') {
   await writeFile(dir+'/network_security_config.xml',`<?xml version="1.0" encoding="utf-8"?><network-security-config><base-config cleartextTrafficPermitted="false"/><domain-config cleartextTrafficPermitted="${url.protocol==='http:'}"><domain includeSubdomains="false">${url.hostname}</domain></domain-config></network-security-config>`)
   const path='android/app/src/main/AndroidManifest.xml'
   let manifest=await readFile(path,'utf8')
+  if (!manifest.includes('xmlns:tools=')) manifest=manifest.replace('<manifest','<manifest xmlns:tools="http://schemas.android.com/tools"')
   manifest=manifest.replace(/android:usesCleartextTraffic="[^"]*"/g,'').replace(/android:networkSecurityConfig="[^"]*"/g,'')
-  manifest=manifest.replace('<application','<application android:networkSecurityConfig="@xml/network_security_config" android:usesCleartextTraffic="false"')
+  manifest=manifest.replace(/tools:replace="[^"]*"/g,'')
+  manifest=manifest.replace('<application','<application tools:replace="android:usesCleartextTraffic" android:networkSecurityConfig="@xml/network_security_config" android:usesCleartextTraffic="false"')
+  manifest=manifest.replace('android:allowBackup="true"','android:allowBackup="false"')
   await writeFile(path,manifest)
+  const javaPath=`android/app/src/main/java/${configured.appId.replaceAll('.','/')}/MainActivity.java`
+  await writeFile(javaPath,`package ${configured.appId};
+import android.os.Bundle;
+import android.content.Intent;
+import android.content.ActivityNotFoundException;
+import android.net.Uri;
+import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.annotation.CapacitorPlugin;
+public class MainActivity extends BridgeActivity {
+  @Override public void onCreate(Bundle savedInstanceState) {
+    registerPlugin(SystemDownloads.class);
+    super.onCreate(savedInstanceState);
+  }
+  @CapacitorPlugin(name="SystemDownloads")
+  public static class SystemDownloads extends Plugin {
+    @Override public Boolean shouldOverrideLoad(Uri uri) {
+      Uri server = Uri.parse(${JSON.stringify(url.origin)});
+      if (server.getScheme().equals(uri.getScheme()) && server.getHost().equals(uri.getHost())
+          && server.getPort() == uri.getPort() && uri.getPath() != null
+          && uri.getPath().startsWith("/api/transfers/open/")) {
+        try { getActivity().startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
+        catch (ActivityNotFoundException error) {
+          android.widget.Toast.makeText(getContext(), "请安装浏览器后下载", android.widget.Toast.LENGTH_LONG).show();
+        }
+        return true;
+      }
+      return null;
+    }
+  }
+}
+`)
   // Stable debug key may be supplied by CI for repeat installs; never add a keystore to Git.
   console.log('Android project ready. Build: cd android && ./gradlew assembleDebug')
 } else {
