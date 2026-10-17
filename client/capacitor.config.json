@@ -1,6 +1,6 @@
 {
   "appId": "cn.harry.classsystem",
-  "appName": "智能班务",
+  "appName": "sk2441班务",
   "webDir": "dist",
   "server": {
     "url": "http://8.163.67.49:8000",

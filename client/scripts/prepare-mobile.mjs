@@ -1,5 +1,6 @@
 import { readFile, writeFile, mkdir, access, readdir, unlink } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
+import { applyMobileBranding } from './mobile-branding.mjs'
 const platform = process.argv[2]
 if (!['android','ios'].includes(platform)) throw new Error('Choose android or ios')
 if (Number(process.versions.node.split('.')[0]) < 22) throw new Error('Node 22+ is required')
@@ -14,6 +15,7 @@ await writeFile('capacitor.config.json', JSON.stringify(configured,null,2)+'\n')
 function cap(...args) { const r=spawnSync(process.execPath,['node_modules/@capacitor/cli/bin/capacitor',...args],{stdio:'inherit'}); if(r.status)process.exit(r.status) }
 try { await access(platform) } catch { cap('add',platform) }
 cap('sync',platform)
+await applyMobileBranding(platform, configured)
 // Android's asset merger treats x.js and x.js.gz as duplicate resources.
 // Precompressed copies belong to the HTTP server, not the native bundle.
 const nativeAssets = platform === 'android' ? 'android/app/src/main/assets/public/assets' : 'ios/App/App/public/assets'

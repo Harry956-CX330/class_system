@@ -1,5 +1,7 @@
 # Android、iPhone 与 iPad
 
+应用显示名称为 **sk2441班务**，使用白底班徽图标。Android 常规图标、自适应图标、PWA 与 iOS 工程图标由版本库中的资源统一生成。
+
 同一 Vue 前端提供 PWA 和 Capacitor 包装工程，连接现有 FastAPI 服务，无需新增数据库字段。
 
 ## Android APK
