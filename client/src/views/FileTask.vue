@@ -16,9 +16,18 @@
         </div>
       </div>
 
+      <div class="task-overview">
+        <div><span class="overview-label">文件收集</span><strong>{{ activeTaskCount }} 项进行中</strong><p>统一命名，有序收阅。上传的原文件会在下载时自动整理。</p></div>
+        <div class="overview-metric"><strong>{{ tasks.length }}</strong><span>全部任务</span></div>
+      </div>
+      <div class="collection-toolbar">
+        <el-input v-model="search" placeholder="搜索任务标题" clearable aria-label="搜索文件任务" />
+        <el-radio-group v-model="statusFilter" aria-label="任务状态"><el-radio-button value="all">全部</el-radio-button><el-radio-button value="active">进行中</el-radio-button><el-radio-button value="expired">已截止</el-radio-button></el-radio-group>
+        <span>{{ filteredTasks.length }} 项任务</span>
+      </div>
       <el-table 
         v-if="!isMobile"
-        :data="tasks" 
+        :data="filteredTasks"
         style="width: 100%" 
         v-loading="loading"
         class="custom-table"
@@ -81,7 +90,7 @@
       </el-table>
 
       <div v-else class="mobile-list" v-loading="loading">
-        <el-card v-for="row in tasks" :key="row.id" class="mobile-task-card" shadow="sm">
+        <el-card v-for="row in filteredTasks" :key="row.id" class="mobile-task-card" shadow="never">
           <div class="card-header">
             <span class="task-title">{{ row.title }}</span>
             <el-tag size="small" type="success" effect="light" round>{{ row.submission_count || 0 }} 份</el-tag>
@@ -107,7 +116,7 @@
             </template>
           </div>
         </el-card>
-        <el-empty v-if="tasks.length === 0" description="暂无文件任务" />
+        <el-empty v-if="filteredTasks.length === 0" description="暂无匹配的文件任务" />
       </div>
     </el-card>
 
@@ -279,23 +288,23 @@
       destroy-on-close
     >
       <template v-if="!downloadBusy">
-        <el-alert title="下载由浏览器保存，可查看进度；大文件请保持网络连接。" type="info" :closable="false" style="margin-bottom:16px" /><p style="color:#606266;margin-bottom:12px;">将所有文件打包为一个 ZIP，选择文件夹结构：</p>
+        <el-alert title="一次下载完整 ZIP，进度显示在浏览器下载列表。" type="info" :closable="false" style="margin-bottom:16px" />
+        <p class="download-explanation">所有下载共享有限带宽。大文件需要较长时间，支持断点续传，请保留下载链接并保持网络连接。</p>
+        <p>选择压缩包内的文件夹结构：</p>
         <el-radio-group v-model="downloadStructure" style="display:flex;flex-direction:column;gap:8px;">
           <el-radio value="per_student">每个人一个文件夹</el-radio>
           <el-radio value="flat">全部人一个文件夹</el-radio>
         </el-radio-group>
       </template>
       <template v-else>
-        <div style="text-align:center;">
-          <el-progress :percentage="downloadPercent" :stroke-width="18" text-inside />
-          <p style="color:#606266;margin-top:12px;font-size:14px;">{{ downloadStatus }}</p>
-          <p style="color:#909399;margin-top:4px;font-size:12px;">正在准备下载地址…</p>
+        <div class="download-preparing" v-loading="downloadBusy">
+          <p>正在检查文件并准备下载地址…</p>
         </div>
       </template>
       <template #footer>
         <div style="display:flex;justify-content:flex-end;gap:8px;">
           <el-button v-if="!downloadBusy" @click="downloadVisible = false">取消</el-button>
-          <el-button v-if="!downloadBusy" type="primary" @click="startBatchDownload">开始下载</el-button>
+          <el-button v-if="!downloadBusy" type="primary" @click="startBatchDownload">下载完整 ZIP</el-button>
         </div>
       </template>
     </el-dialog>
@@ -324,15 +333,16 @@
           multiple
           accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.jpg,.jpeg,.png,.gif,.webp"
           :auto-upload="false"
+          :disabled="uploading"
           :on-change="handleFileChange"
-          :on-remove="handleFileRemove"
+          :on-remove="handleFileChange"
         >
           <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
           <div class="el-upload__text">
             将文件拖到此处，或 <em>点击浏览</em>
           </div>
           <template #tip>
-            <div class="el-upload__tip" style="line-height: 1.5;">支持 PDF、图片、Word、PPT 等格式，可一次上传多个文件。</div>
+            <div class="el-upload__tip" style="line-height: 1.5;">支持 PDF、图片、Word、PPT 等格式，每次最多 20 个文件、合计 100 MiB。重新提交将替换本任务的全部旧文件。</div>
           </template>
         </el-upload>
 
@@ -345,7 +355,7 @@
       </template>
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="submitVisible = false">取消</el-button>
+          <el-button :disabled="uploading" @click="submitVisible = false">取消</el-button>
           <el-button type="primary" :icon="Upload" :loading="uploading" :disabled="selectedFiles.length === 0" @click="handleSubmitFile">确认提交</el-button>
         </div>
       </template>
@@ -354,7 +364,7 @@
     <el-dialog 
       v-model="createVisible" 
       :title="editingTask ? '编辑任务' : '发布新任务'" 
-      :width="isMobile ? '100%' : '580px'" 
+      :width="isMobile ? '100%' : '680px'"
       :fullscreen="isMobile"
       class="modern-dialog" 
       destroy-on-close
@@ -363,7 +373,7 @@
         <el-form-item label="任务标题">
           <el-input v-model="createForm.title" placeholder="例如：期中考试总结报告" />
         </el-form-item>
-        <el-form-item label="截止日期与时间 (选填)">
+        <el-form-item label="截止日期与时间（必填）">
           <el-date-picker 
             v-model="createForm.deadline" 
             type="datetime" 
@@ -378,32 +388,14 @@
         </el-form-item>
         <el-form-item label="关联小组项目">
           <el-select v-model="createForm.group_project_id" placeholder="可选：关联小组作业" clearable style="width: 100%"
-            @change="onGroupProjectChange">
+          >
             <el-option v-for="gp in groupProjects" :key="gp.id" :label="gp.name" :value="gp.id" />
           </el-select>
         </el-form-item>
 
         <el-form-item label="文件命名规则">
-          <el-radio-group v-model="namingPreset" @change="onNamingPresetChange" style="display: block">
-            <div v-for="preset in namingPresets" :key="preset.value" style="margin-bottom: 6px;">
-              <el-radio :value="preset.value">
-                <span style="color: #86909C;">{{ preset.label }}</span>
-                <el-tag size="small" type="info" style="margin-left: 8px;">{{ preset.pattern }}</el-tag>
-              </el-radio>
-            </div>
-            <el-radio value="custom" style="margin-top: 6px;">自定义</el-radio>
-          </el-radio-group>
-          <el-input v-if="namingPreset === 'custom'" v-model="createForm.naming_pattern" 
-            placeholder="如：{name}_{sid}_作业" style="margin-top: 8px;" />
-          <div class="pattern-hint" style="margin-top: 8px;">
-            <span style="color:#86909C;font-size:12px;">可用变量：</span>
-            <el-tag v-for="hint in placeholders" :key="hint.key" size="small" type="info" @click="insertPlaceholder(hint.key)" style="cursor:pointer;margin:0 2px;">
-              {{ hint.key }}
-            </el-tag>
-          </div>
-          <div v-if="previewName" class="pattern-preview" style="margin-top:6px;font-size:12px;color:#606266;">
-            示例：{{ previewName }}
-          </div>
+          <FileNamingRule ref="namingRuleRef" v-model="createForm.naming_pattern" :group-enabled="!!createForm.group_project_id"
+            :task-title="createForm.title" :task-date="editingTask?.created_at" />
         </el-form-item>
 
       </el-form>
@@ -424,6 +416,8 @@ import { Plus, View, Upload, UploadFilled, Delete, Timer, User, Download, Edit, 
 import { useAuthStore } from '../stores/auth'
 import api from '../api'
 import { browserDownload } from '../utils/download'
+import FileNamingRule from '../components/FileNamingRule.vue'
+import { showMailResult } from '../utils/notifications'
 
 const authStore = useAuthStore()
 const isMobile = ref(window.innerWidth < 768)
@@ -431,6 +425,13 @@ const isMobile = ref(window.innerWidth < 768)
 // 任务列表
 const tasks = ref([])
 const loading = ref(false)
+const search = ref('')
+const statusFilter = ref('all')
+const namingRuleRef = ref(null)
+const filteredTasks = computed(() => tasks.value.filter(task =>
+  task.title.toLowerCase().includes(search.value.trim().toLowerCase()) &&
+  (statusFilter.value === 'all' || (statusFilter.value === 'expired' ? isExpired(task.deadline) : !isExpired(task.deadline)))))
+const activeTaskCount = computed(() => tasks.value.filter(task => !isExpired(task.deadline)).length)
 
 // 创建/编辑
 const createVisible = ref(false)
@@ -439,85 +440,9 @@ const editingTask = ref(null)
 const createForm = reactive({
   title: '',
   description: '',
-  naming_pattern: '{name}_{sid}',
+  naming_pattern: '{sid}-{name}-{seq}-{orig}',
   deadline: '',
   group_project_id: null,
-})
-
-// 文件命名预设
-const namingPreset = ref('name_sid')
-const namingPresets = computed(() => {
-  const presets = [
-    { value: 'name_sid', label: '姓名 + 学号', pattern: '{name}_{sid}' },
-    { value: 'name_orig', label: '姓名 + 原文件名（多文件推荐）', pattern: '{name}_{sid}_{orig}' },
-    { value: 'task_seq', label: '任务 + 姓名 + 序号', pattern: '{task}_{name}_{seq}' },
-    { value: 'sid_name', label: '学号 + 姓名', pattern: '{sid}_{name}' },
-    { value: 'sid3_name', label: '学号后3位 + 姓名', pattern: '{sid3}_{name}' },
-    { value: 'sid2_name', label: '学号后2位 + 姓名', pattern: '{sid2}_{name}' },
-  ]
-  if (createForm.group_project_id) {
-    const gp = groupProjects.value.find(g => g.id === createForm.group_project_id)
-    const gpName = gp ? gp.name : '未知小组'
-    presets.push({ value: 'group_leader', label: '小组名 + 组长姓名', pattern: '{group}_{leader}_{orig}' })
-    presets.push({ value: 'group_name', label: '小组名 + 姓名', pattern: '{group}_{name}' })
-  }
-  presets.push({ value: 'custom', label: '自定义', pattern: '' })
-  return presets
-})
-
-function onNamingPresetChange(val) {
-  const preset = namingPresets.value.find(p => p.value === val)
-  if (preset && preset.pattern) {
-    createForm.naming_pattern = preset.pattern
-  }
-}
-
-function onGroupProjectChange(val) {
-  if (!val) {
-    namingPreset.value = 'name_sid'
-    createForm.naming_pattern = '{name}_{sid}'
-    return
-  }
-  // 选择小组后自动切换到小组命名
-  namingPreset.value = 'group_leader'
-  const preset = namingPresets.value.find(p => p.value === 'group_leader')
-  if (preset) createForm.naming_pattern = preset.pattern
-}
-
-// 可用变量标签
-const placeholders = computed(() => {
-  const list = [
-    { key: '{name}', label: '学生姓名' },
-    { key: '{sid}', label: '完整学号' },
-    { key: '{sid2}', label: '学号后2位' },
-    { key: '{sid3}', label: '学号后3位' },
-    { key: '{task}', label: '任务标题' },
-    { key: '{orig}', label: '原文件名（不含扩展名）' },
-    { key: '{seq}', label: '文件序号' },
-    { key: '{date}', label: '任务发布日期' },
-  ]
-  if (createForm.group_project_id) {
-    list.push({ key: '{group}', label: '小组名（优先自定义组名）' }, { key: '{leader}', label: '组长姓名' })
-  }
-  return list
-})
-
-const patternInputRef = ref(null)
-
-function insertPlaceholder(key) {
-  if (namingPreset.value !== 'custom') {
-    namingPreset.value = 'custom'
-    onNamingPresetChange('custom')
-  }
-  createForm.naming_pattern += key
-}
-
-// 预览
-const previewName = computed(() => {
-  const p = createForm.naming_pattern
-  if (!p) return ''
-  const values = { name: '张三', sid: '20240001', sid2: '01', sid3: '001', group: '第1组', leader: '李四', task: createForm.title || '课程作业', orig: '实验报告', seq: '01', date: '20261018' }
-  return p.replace(/\{([^}]+)\}/g, (match,key) => values[key] || match)
 })
 
 // 小组项目列表
@@ -558,10 +483,8 @@ const expandedMobile = ref({})
 const subLoading = ref(false)
 
 // 下载（分批 + 进度）
-const downloadStructure = ref('flat')
+const downloadStructure = ref('per_student')
 const downloadVisible = ref(false)
-const downloadPercent = ref(0)
-const downloadStatus = ref('')
 const downloadBusy = ref(false)
 const downloadScope = ref(null) // { taskId: number|null, baseName: string }
 
@@ -594,7 +517,7 @@ function formatTime(t) {
 
 function isExpired(deadline) {
   if (!deadline) return false
-  return new Date() > new Date(deadline)
+  return now.value > new Date(deadline).getTime()
 }
 
 function isDesktop() { return window.innerWidth >= 768 }
@@ -612,10 +535,9 @@ function openCreateDialog() {
   editingTask.value = null
   createForm.title = ''
   createForm.description = ''
-  createForm.naming_pattern = '{name}_{sid}'
+  createForm.naming_pattern = '{sid}-{name}-{seq}-{orig}'
   createForm.deadline = ''
   createForm.group_project_id = null
-  namingPreset.value = 'name_sid'
   createVisible.value = true
 }
 
@@ -626,16 +548,13 @@ function openEditDialog(task) {
   createForm.naming_pattern = task.naming_pattern
   createForm.deadline = task.deadline ? task.deadline.replace('T', ' ').slice(0, 19) : ''
   createForm.group_project_id = task.group_project_id || null
-  // 精确匹配预设 pattern，不匹配则用自定义模式
-  const pattern = task.naming_pattern || ''
-  const matched = namingPresets.value.find(p => p.pattern === pattern && p.value !== 'custom')
-  namingPreset.value = matched ? matched.value : 'custom'
   createVisible.value = true
 }
 
 async function handleCreate() {
-  if (!createForm.title) return ElMessage.warning('请输入任务标题')
+  if (!createForm.title.trim()) return ElMessage.warning('请输入任务标题')
   if (!createForm.deadline) return ElMessage.warning('请选择截止时间')
+  if (namingRuleRef.value?.patternError) return ElMessage.warning(namingRuleRef.value.patternError)
   if (creating.value) return
   const payload = { ...createForm }
   payload.deadline = payload.deadline.replace('T', ' ')
@@ -677,7 +596,10 @@ function handleFileChange(file, fileList) {
 }
 
 async function handleSubmitFile() {
+  if (uploading.value) return
   if (selectedFiles.value.length === 0) return ElMessage.warning('请选择需要上传的文件')
+  if (selectedFiles.value.length > 20) return ElMessage.warning('每次最多提交 20 个文件')
+  if (selectedFiles.value.reduce((total, file) => total + file.size, 0) > 100 * 1024 * 1024) return ElMessage.warning('本次文件合计超过 100 MiB，请压缩后提交')
   uploading.value = true
   uploadPercent.value = 0
   const formData = new FormData()
@@ -703,6 +625,10 @@ async function handleSubmitFile() {
 
 async function openDetailDialog(task) {
   detailTask.value = task
+  submissions.value = []
+  unsubmittedList.value = []
+  unsubmittedLoaded.value = false
+  expandedMobile.value = {}
   detailActiveTab.value = 'submissions'
   detailVisible.value = true
   await loadSubmissions()
@@ -734,8 +660,8 @@ async function handleSendReminder() {
   } catch { return }
   sendingReminder.value = true
   try {
-    await api.post(`/api/file-tasks/${detailTask.value.id}/send-email`)
-    ElMessage.success('邮件提醒已发送')
+    const { data } = await api.post(`/api/file-tasks/${detailTask.value.id}/send-email`)
+    showMailResult(data)
   } catch (err) {
     ElMessage.error(err.response?.data?.detail || '发送失败')
   } finally { sendingReminder.value = false }
@@ -790,6 +716,7 @@ async function startBatchDownload() {
     const base = scope.taskId ? `/api/file-tasks/${scope.taskId}/download-zip` : '/api/file-tasks/download-all-zip'
     const { data: info } = await api.get(base + '-info', { params: { structure: downloadStructure.value } })
     if (!info.total_files) return ElMessage.warning('暂无可下载的文件')
+    if (info.missing_files) ElMessage.warning(`有 ${info.missing_files} 条记录缺少原文件。将下载现存文件，并在 ZIP 中附上缺失清单，请核对备份或重新提交。`)
     await browserDownload(`${base}?structure=${downloadStructure.value}`)
     ElMessage.success('已交给浏览器下载完整 ZIP，可在浏览器下载列表查看进度')
     downloadVisible.value = false
@@ -797,22 +724,11 @@ async function startBatchDownload() {
   finally { downloadBusy.value = false }
 }
 
-function downloadBlob(blob, filename) {
-  const url = window.URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  window.URL.revokeObjectURL(url)
-}
-
 function showBlobError(err) {
   if (err.response?.status === 404) {
     ElMessage.warning('暂无可下载的文件')
   } else {
-    ElMessage.error('下载失败，请重试')
+    ElMessage.error(err.response?.data?.detail || '下载失败，请重试')
   }
 }
 
@@ -878,6 +794,15 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.task-overview { display:flex; align-items:center; gap:24px; padding:24px; margin-bottom:20px; border:1px solid #d5e9e8; border-radius:14px; background:linear-gradient(120deg,#edf8f6,#f5f8fc); }
+.task-overview strong { display:block; font-size:24px; color:#1d5360; margin-top:6px; }
+.task-overview p { font-size:13px; line-height:1.8; color:#617e8a; margin:8px 0 0; }
+.overview-label { color:#527784; font-size:12px; letter-spacing:2px; }
+.overview-metric { margin-left:auto; text-align:center; min-width:70px; }
+.overview-metric span { font-size:12px; color:#617e8a; }
+.download-explanation { color:#627787; line-height:1.8; font-size:13px; }
+.download-preparing { min-height:130px; padding-top:80px; text-align:center; color:#627787; }
+@media(max-width:767px) { .task-overview { padding:18px; gap:12px; } .task-overview strong { font-size:20px; } }
 /* 容器与卡片基底 */
 .file-task-container {
   padding: 0;

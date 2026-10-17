@@ -384,6 +384,7 @@ import { Plus, Delete, EditPen, DataAnalysis, Message, Timer, ChatDotSquare, Dow
 import { useAuthStore } from '../stores/auth'
 import api from '../api'
 import { optionsList } from '../utils/richtext'
+import { showMailResult } from '../utils/notifications'
 
 const authStore = useAuthStore()
 const surveys = ref([])
@@ -579,8 +580,7 @@ async function handleSendReminder() {
   sendingReminder.value = true
   try {
     const res = await api.post(`/api/surveys/${resultSurvey.value.id}/send-email`)
-    const info = res.data.detail || {}
-    ElMessage.success(`邮件已发送: 成功 ${info.sent || 0} 人，失败 ${info.failed || 0} 人`)
+    showMailResult(res.data)
   } catch (err) {
     ElMessage.error(err.response?.data?.detail || '邮件发送失败')
   } finally {

@@ -32,10 +32,11 @@ from schemas import UserResponse
 from services.files import build_zip_response, safe_upload_path, save_upload, save_upload_async, attachment_headers
 from services.mailer import load_smtp_config, save_smtp_config, send_emails_batch
 from services.mailer import send_emails_batch
-from services.naming import compute_submit_filename
+from services.naming import compute_submit_filename, group_labels
 from services.qq import _get_qq_config, _send_qq_msg
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from typing import Literal
 from starlette.background import BackgroundTask
 from urllib.parse import quote
 import io
@@ -47,10 +48,11 @@ router = APIRouter(tags=["file_tasks"])
 
 @router.get("/api/file-tasks", response_model=list[FileTaskResponse])
 def list_file_tasks(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    tasks = db.query(FileTask).order_by(FileTask.created_at.desc()).all()
+    tasks = db.query(FileTask).options(joinedload(FileTask.author), joinedload(FileTask.group_project)).order_by(FileTask.created_at.desc()).all()
+    counts = dict(db.query(FileSubmission.task_id, func.count(func.distinct(FileSubmission.student_id))).group_by(FileSubmission.task_id).all())
     result = []
     for t in tasks:
-        submission_count = db.query(func.count(func.distinct(FileSubmission.student_id))).filter(FileSubmission.task_id == t.id).scalar()
+        submission_count = counts.get(t.id, 0)
         result.append(FileTaskResponse(id=t.id, title=t.title, description=t.description,
                        created_at=t.created_at, deadline=t.deadline, author_id=t.author_id,
                        author_name=t.author.real_name if t.author else "",
@@ -172,7 +174,7 @@ def submit_files(task_id: int, files: list[UploadFile] = File(...), db: Session 
 @router.get("/api/file-tasks/{task_id}/submissions", response_model=list[FileSubmissionResponse])
 def list_submissions(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
                      x_view_mode: str = Header(None)):
-    subs = db.query(FileSubmission).filter(FileSubmission.task_id == task_id).order_by(FileSubmission.submitted_at.desc()).all()
+    subs = db.query(FileSubmission).options(joinedload(FileSubmission.student)).filter(FileSubmission.task_id == task_id).order_by(FileSubmission.submitted_at.desc()).all()
     is_admin = current_user.role == "admin" or (current_user.is_class_leader and x_view_mode == "admin")
     return [FileSubmissionResponse(
         id=s.id, task_id=s.task_id, student_id=s.student_id,
@@ -273,20 +275,21 @@ def send_task_email_reminder(task_id: int, db: Session = Depends(get_db), curren
 
 
 
-def _collect_zip_items(db: Session, task=None, structure: str = "flat"):
+def _collect_zip_items(db: Session, task=None, structure: str = "flat", student_id=None):
     """收集需要打包的提交文件，返回 [{path, arcname, size}]（确定性顺序）"""
     items = []
+    missing = []
     tasks = [task] if task is not None else db.query(FileTask).order_by(FileTask.id).all()
     task_ids = [t.id for t in tasks]
-    submissions = db.query(FileSubmission).filter(FileSubmission.task_id.in_(task_ids)).order_by(FileSubmission.id).all() if task_ids else []
+    query = db.query(FileSubmission).filter(FileSubmission.task_id.in_(task_ids))
+    if student_id is not None:
+        query = query.filter(FileSubmission.student_id == student_id)
+    submissions = query.order_by(FileSubmission.id).all() if task_ids else []
     user_ids = {s.student_id for s in submissions}
     students = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()} if user_ids else {}
-    project_ids = {t.group_project_id for t in tasks if t.group_project_id}
-    projects = {p.id: p for p in db.query(GroupProject).filter(GroupProject.id.in_(project_ids)).all()} if project_ids else {}
-    group_rows = db.query(GroupAssignment).filter(
-        GroupAssignment.project_id.in_(project_ids), GroupAssignment.student_id.in_(user_ids)
-    ).all() if project_ids and user_ids else []
-    assignments = {(a.project_id, a.student_id): a for a in group_rows}
+    project_ids = {t.group_project_id for t in tasks if t.group_project_id and
+                   ('{group}' in (t.naming_pattern or '') or '{leader}' in (t.naming_pattern or ''))}
+    groups = group_labels(db, project_ids)
     by_task = {}
     for submission in submissions:
         by_task.setdefault(submission.task_id, []).append(submission)
@@ -300,23 +303,12 @@ def _collect_zip_items(db: Session, task=None, structure: str = "flat"):
             sequences[s.student_id] = sequences.get(s.student_id,0)+1
             fpath = safe_upload_path(s.file_path)
             if not os.path.isfile(fpath):
+                missing.append(f"任务 #{t.id} {t.title} | 提交记录 #{s.id} | {s.original_name or s.file_path}")
                 continue
             student = students.get(s.student_id)
             ext = os.path.splitext(s.file_path)[1]
             if student:
-                effective_pattern = pattern
-                if "{group}" in pattern and t.group_project_id:
-                    assignment = assignments.get((t.group_project_id, student.id))
-                    project = projects.get(t.group_project_id)
-                    group_label = f"第{assignment.group_number}组" if assignment else "未分组"
-                    if assignment and project and project.group_names:
-                        try:
-                            group_label = json.loads(project.group_names).get(str(assignment.group_number), group_label)
-                        except (json.JSONDecodeError, TypeError):
-                            pass
-                    # Resolve values only inside format_map so braces in a group name stay literal.
-                    effective_pattern = pattern
-                new_base = compute_submit_filename(effective_pattern, student, t, None, s.original_name, db, seq=sequences[s.student_id])
+                new_base = compute_submit_filename(pattern, student, t, None, s.original_name, db, seq=sequences[s.student_id], groups=groups)
             else:
                 new_base = os.path.splitext(s.file_path)[0].split("/")[-1]
             parts = []
@@ -329,6 +321,10 @@ def _collect_zip_items(db: Session, task=None, structure: str = "flat"):
                 parts.append(student_folder)
             parts.append(f"{new_base}{ext}")
             items.append({"path": fpath, "arcname": "/".join(parts), "size": os.path.getsize(fpath)})
+    if missing:
+        content = ('文件检查清单\n\n以下提交记录在服务器中找不到对应文件，未能收入本压缩包。\n'
+                   '请核对历史备份或联系提交人重新上传；其他现存文件已正常打包。\n\n' + '\n'.join(missing))
+        items.append({'content': content, 'arcname': '_缺失文件清单.txt', 'size': len(content.encode('utf-8-sig')), 'missing_count': len(missing)})
     return items
 
 
@@ -358,7 +354,7 @@ def _build_zip_response(items: list, base_filename: str):
 
 
 @router.get("/api/file-tasks/{task_id}/download-zip-info")
-def download_task_zip_info(task_id: int, structure: str = "flat",
+def download_task_zip_info(task_id: int, structure: Literal['flat', 'per_student'] = "flat",
                            db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     """返回某任务打包下载的分批信息"""
     task = db.query(FileTask).filter(FileTask.id == task_id).first()
@@ -368,6 +364,7 @@ def download_task_zip_info(task_id: int, structure: str = "flat",
     return {
         "total_batches": len(batches),
         "total_files": len(items),
+        "missing_files": sum(item.get('missing_count', 0) for item in items),
         "total_size": sum(i["size"] for i in items),
         "batches": [
             {"index": i + 1, "file_count": len(b), "size": sum(x["size"] for x in b)}
@@ -378,7 +375,7 @@ def download_task_zip_info(task_id: int, structure: str = "flat",
 
 
 @router.get("/api/file-tasks/{task_id}/download-zip")
-def download_task_zip(task_id: int, structure: str = "flat", batch: int | None = None,
+def download_task_zip(task_id: int, structure: Literal['flat', 'per_student'] = "flat", batch: int | None = None,
                       db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     """打包下载某个任务的全部提交文件（支持分批、文件夹结构，使用当前命名规则）"""
     task = db.query(FileTask).filter(FileTask.id == task_id).first()
@@ -422,15 +419,7 @@ def download_student_zip(task_id: int, student_id: int, db: Session = Depends(ge
     ).order_by(FileSubmission.id).all()
     if not subs:
         raise HTTPException(status_code=404, detail="该学生暂无提交文件")
-    pattern = task.naming_pattern or "{name}_{sid}"
-    items = []
-    for seq, s in enumerate(subs, 1):
-        fpath = safe_upload_path(s.file_path)
-        if not os.path.isfile(fpath):
-            continue
-        ext = os.path.splitext(s.file_path)[1]
-        new_base = compute_submit_filename(pattern, student, task, task.group_project_id, s.original_name, db, seq=seq)
-        items.append({"path": fpath, "arcname": f"{new_base}{ext}", "size": os.path.getsize(fpath)})
+    items = _collect_zip_items(db, task=task, student_id=student_id)
     if not items:
         raise HTTPException(status_code=404, detail="文件不存在")
     safe_name = student.real_name or student.username
@@ -446,7 +435,7 @@ def download_student_zip(task_id: int, student_id: int, db: Session = Depends(ge
 
 
 @router.get("/api/file-tasks/download-all-zip-info")
-def download_all_tasks_zip_info(structure: str = "flat",
+def download_all_tasks_zip_info(structure: Literal['flat', 'per_student'] = "flat",
                                 db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     """返回全部任务打包下载的分批信息"""
     items = _collect_zip_items(db, task=None, structure=structure)
@@ -454,6 +443,7 @@ def download_all_tasks_zip_info(structure: str = "flat",
     return {
         "total_batches": len(batches),
         "total_files": len(items),
+        "missing_files": sum(item.get('missing_count', 0) for item in items),
         "total_size": sum(i["size"] for i in items),
         "batches": [
             {"index": i + 1, "file_count": len(b), "size": sum(x["size"] for x in b)}
@@ -464,7 +454,7 @@ def download_all_tasks_zip_info(structure: str = "flat",
 
 
 @router.get("/api/file-tasks/download-all-zip")
-def download_all_tasks_zip(structure: str = "flat", batch: int | None = None,
+def download_all_tasks_zip(structure: Literal['flat', 'per_student'] = "flat", batch: int | None = None,
                            db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     """打包下载所有任务的提交文件（支持分批、文件夹结构，使用当前命名规则）"""
     items = _collect_zip_items(db, task=None, structure=structure)

@@ -413,8 +413,8 @@ class SocialPracticeResponse(BaseModel):
 class FileTaskCreate(RichTextModel):
     title: str
     description: str = ""
-    deadline: str
-    naming_pattern: str = "{name}_{sid}"
+    deadline: str = Field(min_length=1)
+    naming_pattern: str = "{sid}-{name}-{seq}-{orig}"
     group_project_id: Optional[int] = None
 
 

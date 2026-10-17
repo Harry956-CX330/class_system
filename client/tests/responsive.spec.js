@@ -1,8 +1,13 @@
 import { test, expect } from '@playwright/test'
+const sessions = new Map()
 async function signIn(page, request, student=false) {
-  const response=await request.post('/api/login',{data:{username:student?'preview-student':'preview-admin',password:'PreviewOnly123!'}})
-  expect(response.ok()).toBeTruthy()
-  const {access_token,user}=await response.json()
+  const username=student?'preview-student':'preview-admin'
+  if (!sessions.has(username)) {
+    const response=await request.post('/api/login',{data:{username,password:'PreviewOnly123!'}})
+    expect(response.ok(),await response.text()).toBeTruthy()
+    sessions.set(username,await response.json())
+  }
+  const {access_token,user}=sessions.get(username)
   await page.addInitScript(({token,user})=>{ localStorage.setItem('token',token);localStorage.setItem('user',JSON.stringify(user));localStorage.setItem('login_time',String(Date.now())); },{token:access_token,user})
 }
 test('navigation, notice editor and layout stay within viewport',async({page,request},testInfo)=>{
@@ -35,4 +40,31 @@ test('student can complete a choice/rating survey',async({page,request})=>{
   await dialog.getByRole('button',{name:'提交答卷'}).click()
   await expect(dialog).toBeHidden()
   await expect(page.getByRole('button',{name:'再次填写'}).first()).toBeEnabled()
+})
+
+test('file naming previews and survey question editing work on each screen', async({page,request}, testInfo) => {
+  const errors=[];page.on('pageerror',e=>errors.push(e.message))
+  await signIn(page,request)
+  await page.goto('/file-tasks')
+  await page.getByRole('button',{name:'发布新任务'}).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByText('20240001-张三-01-实验报告.pdf',{exact:true})).toBeVisible()
+  await dialog.getByRole('button',{name:/简洁编号/}).click()
+  await expect(dialog.getByText('20240001-张三-02.pdf',{exact:true})).toBeVisible()
+  await dialog.getByRole('button',{name:/自定义规则/}).click()
+  await dialog.getByRole('textbox',{name:'自定义文件命名规则'}).fill('{name}_{sid}')
+  await expect(dialog.getByText('张三_20240001.pdf',{exact:true}).first()).toBeVisible()
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2)).toBeTruthy()
+  await page.screenshot({path:`test-results/${testInfo.project.name}-naming.png`,fullPage:true})
+  await dialog.getByRole('button',{name:'取消',exact:true}).click()
+  await page.goto('/survey-editor')
+  await page.getByRole('button',{name:'○ 单选题',exact:true}).click()
+  await page.getByPlaceholder('请输入题干内容').fill('第一道题')
+  await page.getByRole('button',{name:'⭐ 评分题',exact:true}).click()
+  await page.getByPlaceholder('请输入题干内容').nth(1).fill('第二道题')
+  await page.getByRole('button',{name:'题目上移',exact:true}).nth(1).click()
+  await expect(page.getByPlaceholder('请输入题干内容').first()).toHaveValue('第二道题')
+  await page.getByRole('button',{name:'预览',exact:true}).click()
+  await expect(page.getByText('1. 第二道题',{exact:true})).toBeVisible()
+  expect(errors).toEqual([])
 })

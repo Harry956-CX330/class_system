@@ -1,6 +1,24 @@
 # 部署与资源配置
 
-系统保持 Vue 3、FastAPI、SQLAlchemy 和 SQLite。Docker 构建时打包 Vue 前端，运行单个 Uvicorn worker；应用容器限制为 1.5 CPU、1 GiB RAM。剩余资源留给宿主机和可选的 NapCat 服务。默认面向 50 人的小班使用。
+系统保持 Vue 3、FastAPI、SQLAlchemy 和 SQLite。Docker 构建时打包 Vue 前端，运行单个 Uvicorn worker；应用容器限制为 1.5 CPU、512 MiB RAM。剩余资源留给宿主机和可选的 NapCat 服务。默认面向 50 人的小班使用。
+
+## 避免更新后仍显示旧页面
+
+不能把旧后端目录整体挂载到 `/app`，否则会覆盖镜像中的代码与新前端。只挂载服务器已有数据库所在目录、上传目录、私密配置和磁盘临时目录。数据库与 `.session-secret` 使用服务器原文件，禁止把开发数据库打包上传。
+
+每个构建生成公开的 `build-info.json`，记录版本、Git 提交、入口 HTML 与 JS/CSS 校验值。生产镜像启动时核对所有标识和 App 清单，不匹配时启动失败。`/api/health` 同时返回后端提交和前端构建状态；侧栏显示版本和提交缩写。不存在的 JS、图标或 manifest 返回 404，避免 SPA 回退掩盖部署问题。
+
+小服务器可先在开发机运行前端构建，再使用预构建目标：
+
+```sh
+# 提交源码后重新构建，构建提交必须与 HEAD 一致。
+cd client && npm run build && cd ..
+python scripts/package_release.py
+# 将生成的发布包上传到服务器并解压，再在服务器执行：
+python3 scripts/deploy_server.py --release /root/class-system-releases/提交号 --source /root/class-sys-app --old-container class_system
+```
+
+发布脚本使用 `Dockerfile` 的 `prebuilt` 目标，避免在服务器运行 Node 构建；先通过仅绑定回环端口的候选容器验证新前端和服务器只读数据库，然后停旧服务、制作最终数据库备份并切换。保留旧容器、备份、运行配置与回滚脚本，启动失败时自动恢复旧容器。服务器私密配置存于权限 600 的文件，不进入 Git 或镜像。该脚本适用于指定目录布局，其他部署先核对挂载路径。
 
 ## 部署现有数据库
 
@@ -38,6 +56,8 @@ docker compose up -d --build app
 
 一键下载默认生成一个完整 ZIP，不强制拆成小包；旧分批接口仍兼容。ZIP 生成并发 1，原文件合计上限 2 GiB，使用存储模式节省 CPU。`temp/` 磁盘缓存总预算 2 GiB，后续打包时清理超 2 小时旧包；正在下载的包保留。缓存支持 HTTP Range 续传。磁盘需额外容纳 ZIP 并保留至少 256 MiB；超限按任务或学生下载。不能将缓存放内存盘。
 
+新任务推荐使用“学号-姓名-序号-原文件名”，简洁方案保留学号、姓名与序号；分组方案也使用提交人姓名，避免同组多人的文件混在一起。扩展名自动保留，预览展示两份示例。已有任务保留原规则，可在编辑时切换。单个、按人和全部任务下载使用同一命名逻辑。历史记录缺少文件时，界面提示并在 ZIP 加入 `_缺失文件清单.txt`，不会删除记录或隐瞒缺失。
+
 公开前端资源按页加载、构建时 gzip 预压缩，富文本编辑器延迟加载。私有文件不整文件缓冲。不要用其他静态服务直接公开 `uploads/`，否则会绕过权限和限速。进程内限速要求保持单 worker。
 
 Compose 可通过 `MAX_UPLOAD_MB`、`MAX_IMPORT_MB`、`MAX_CONCURRENT_UPLOADS`、`MAX_CONCURRENT_DOWNLOADS`、`MAX_CONCURRENT_ARCHIVES`、`MAX_ARCHIVE_MB`、`MIN_FREE_DISK_MB`、`THREAD_TOKENS`、`DOWNLOAD_KIB_PER_SECOND` 调整限制。线程池默认 8。可选 NapCat 另限 0.5 CPU / 768 MiB。
@@ -48,7 +68,7 @@ Compose 可通过 `MAX_UPLOAD_MB`、`MAX_IMPORT_MB`、`MAX_CONCURRENT_UPLOADS`�
 
 邮件带纯文本和 HTML 版本，小图片 CID 内嵌、小文件 MIME 附件；每封媒体预算 128 KiB，整批最多 12 MiB，较大媒体改用 7 天有效签名链接。邮件同时仅处理一批，约 32 KiB/s 发送。链接持有者在有效期内可下载对应媒体，请按通知范围转发。设置正确 `PUBLIC_BASE_URL`，失效后可登录系统下载。
 
-QQ 服务可用 `docker compose --profile qq up -d`，API/WebUI 仅绑定主机回环地址。通过 SSH 隧道管理 NapCat 并设置访问令牌，系统机器人地址可填 `http://napcat:3001?access_token=...`。共享只读上传目录可发送群图片/群文件，批量私聊较大媒体使用签名链接。外部机器人需配置 `QQ_ALLOWED_HOSTS` 和一致的 `QQ_UPLOAD_ROOT`；SMTP 主机使用 `SMTP_ALLOWED_HOSTS` 白名单。
+QQ 服务可用 `docker compose --profile qq up -d`，API/WebUI 仅绑定主机回环地址。通过 SSH 隧道管理 NapCat 并设置访问令牌，系统机器人地址可填 `http://napcat:3001?access_token=...`。共享只读上传目录可发送群图片和不超过 1 MiB 的群文件；较大文件和批量私聊较大媒体使用签名链接，减少 3 Mbps 带宽下的重复传输。QQ 单次媒体调用串行执行，群文件调用允许更长的网络超时。外部机器人需配置 `QQ_ALLOWED_HOSTS` 和一致的 `QQ_UPLOAD_ROOT`；SMTP 主机使用 `SMTP_ALLOWED_HOSTS` 白名单。
 
 ## HTTPS 与反向代理
 

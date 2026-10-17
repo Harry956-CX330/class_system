@@ -166,6 +166,44 @@ class ReleaseTests(unittest.TestCase):
             with self.assertRaises(HTTPException): validate_pattern(value)
         self.assertNotIn('/',safe_component('../bad/name'))
         self.assertTrue(safe_component('CON').startswith('_'))
+    def test_default_naming_and_missing_files(self):
+        task = self.client.post('/api/file-tasks', headers=self.admin, json={'title':'整齐命名', 'deadline':'2099-12-31 23:59:00'}).json()
+        self.assertEqual(task['naming_pattern'], '{sid}-{name}-{seq}-{orig}')
+        self.upload(task['id'], ('报告.txt', '补充.txt'))
+        response = self.client.get(f"/api/file-tasks/{task['id']}/download-zip", headers=self.admin)
+        with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+            self.assertEqual(archive.namelist(), ['20260002-张三-01-报告.txt','20260002-张三-02-补充.txt'])
+        with SessionLocal() as db:
+            row = db.query(FileSubmission).filter_by(task_id=task['id']).first()
+            (root/'uploads'/row.file_path).unlink()
+        response = self.client.get(f"/api/file-tasks/{task['id']}/download-zip", headers=self.admin)
+        self.assertEqual(response.status_code, 200)
+        with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+            self.assertIn('_缺失文件清单.txt', archive.namelist())
+            self.assertIn('报告.txt', archive.read('_缺失文件清单.txt').decode('utf-8-sig'))
+            self.assertIn('20260002-张三-02-补充.txt', archive.namelist())
+        info = self.client.get(f"/api/file-tasks/{task['id']}/download-zip-info", headers=self.admin).json()
+        self.assertEqual(info['missing_files'], 1)
+        self.assertEqual(self.client.get(f"/api/file-tasks/{task['id']}/download-zip?structure=other", headers=self.admin).status_code, 422)
+    def test_frontend_manifest_detects_stale_mount_and_missing_assets(self):
+        import hashlib
+        from services.buildinfo import inspect_build
+        site = root/'frontend-build'; (site/'assets').mkdir(parents=True, exist_ok=True)
+        index = b'<script src="/assets/index-abc.js"></script>'
+        script = b'console.log("build")'
+        (site/'index.html').write_bytes(index)
+        (site/'assets'/'index-abc.js').write_bytes(script)
+        (site/'manifest.webmanifest').write_text(json.dumps({'name':'sk2441班务'}), encoding='utf-8')
+        info = {'version':'2.1.0', 'revision':'test-revision','built_at':'2026-10-18', 'index_sha256':hashlib.sha256(index).hexdigest(), 'assets':{'/assets/index-abc.js':hashlib.sha256(script).hexdigest()}}
+        (site/'build-info.json').write_text(json.dumps(info), encoding='utf-8')
+        self.assertTrue(inspect_build(site, 'test-revision')['ready'])
+        self.assertFalse(inspect_build(site, 'other-revision')['ready'])
+        (site/'index.html').write_bytes(b'old mounted frontend')
+        self.assertFalse(inspect_build(site, 'test-revision')['ready'])
+        (site/'index.html').write_bytes(index)
+        (site/'assets'/'index-abc.js').unlink()
+        self.assertFalse(inspect_build(site, 'test-revision')['ready'])
+        self.assertEqual(self.client.get('/missing.webmanifest').status_code, 404)
     def test_single_and_student_zip_use_the_same_sequence(self):
         task=self.task();self.upload(task,('第一份.txt','第二份.txt'))
         with SessionLocal() as db:
@@ -177,6 +215,19 @@ class ReleaseTests(unittest.TestCase):
         response=self.client.get(f'/api/file-tasks/{task}/students/2/download-zip',headers=self.student)
         with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
             self.assertTrue(any('_02_第二份.txt' in name for name in archive.namelist()))
+    def test_group_zip_resolves_leader_without_a_submission(self):
+        from models import GroupProject, GroupAssignment
+        with SessionLocal() as db:
+            project=GroupProject(name='分组命名测试',admin_id=1,group_names=json.dumps({'1':'组{orig}/A'}))
+            db.add(project);db.flush();project_id=project.id
+            db.add_all([GroupAssignment(project_id=project_id,group_number=1,student_id=2,role='member'),
+                        GroupAssignment(project_id=project_id,group_number=1,student_id=3,role='leader')]);db.commit()
+        response=self.client.post('/api/file-tasks',headers=self.admin,json={'title':'小组收集','deadline':'2099-12-31 23:59:00',
+            'group_project_id':project_id,'naming_pattern':'{group}-{leader}-{seq}-{orig}'})
+        task=response.json()['id'];self.upload(task)
+        response=self.client.get(f'/api/file-tasks/{task}/download-zip',headers=self.admin)
+        with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+            self.assertEqual(archive.namelist(), ['组{orig}_A-other-test-01-报告.txt'])
     def test_precompressed_public_assets_and_range_fallback(self):
         import gzip
         from fastapi import FastAPI

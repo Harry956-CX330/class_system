@@ -91,11 +91,13 @@ def build_zip_response(items, filename):
         raise HTTPException(503,"压缩包正在生成，请稍后重试",headers={"Retry-After":"10"})
     temporary = None
     try:
-        size = sum(os.path.getsize(item["path"]) for item in items)
+        size = sum(len(item['content'].encode('utf-8')) if 'content' in item else os.path.getsize(item['path']) for item in items)
         if size > MAX_ARCHIVE_BYTES:
             raise HTTPException(413,"本次打包超过上限，请按任务或分批下载")
         TEMP_DIR.mkdir(parents=True,exist_ok=True)
-        digest = hashlib.sha256(json.dumps([(i["path"],i["arcname"],os.stat(i["path"]).st_size,os.stat(i["path"]).st_mtime_ns) for i in items],ensure_ascii=False).encode()).hexdigest()
+        signatures = [(None, item['arcname'], hashlib.sha256(item['content'].encode('utf-8')).hexdigest()) if 'content' in item else
+                      (item['path'], item['arcname'], os.stat(item['path']).st_size, os.stat(item['path']).st_mtime_ns) for item in items]
+        digest = hashlib.sha256(json.dumps(signatures, ensure_ascii=False).encode()).hexdigest()
         path = TEMP_DIR / ("cached-"+digest+".zip")
         with _cache_lock:
             candidates = sorted(TEMP_DIR.glob("cached-*.zip"),key=lambda p:p.stat().st_mtime)
@@ -127,7 +129,10 @@ def build_zip_response(items, filename):
                         name = f"{base}_{count}{ext}"
                         count += 1
                     seen.add(name.casefold())
-                    archive.write(item["path"],name)
+                    if 'content' in item:
+                        archive.writestr(name, item['content'].encode('utf-8-sig'))
+                    else:
+                        archive.write(item["path"],name)
             os.replace(temporary,path)
             temporary = None
         with _cache_lock:

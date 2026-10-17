@@ -2,6 +2,10 @@ from models import QQConfig
 from sqlalchemy.orm import Session
 import json
 import urllib.request
+import threading
+from fastapi import HTTPException
+
+_qq_slot = threading.BoundedSemaphore(1)
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -33,14 +37,23 @@ def _call_qq(api_url: str, endpoint: str, payload: dict) -> dict:
     body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json", **({"Authorization":"Bearer "+token} if token else {})})
     try:
-        with urllib.request.build_opener(_NoRedirect).open(req, timeout=10) as resp:
+        with urllib.request.build_opener(_NoRedirect).open(req, timeout=120 if endpoint in {'upload_group_file','upload_private_file'} else 20) as resp:
             return json.loads(resp.read().decode("utf-8"))
-    except Exception as e:
+    except Exception:
         return {"status": "failed", "error": "QQ 服务连接失败，请检查机器人和访问令牌"}
 
 
 
 def _send_qq_msg(api_url, endpoint, payload):
+    if not _qq_slot.acquire(blocking=False):
+        raise HTTPException(503, '已有 QQ 消息正在发送，请稍后重试', headers={'Retry-After': '15'})
+    try:
+        return _send_qq_media(api_url, endpoint, payload)
+    finally:
+        _qq_slot.release()
+
+
+def _send_qq_media(api_url, endpoint, payload):
     from services.richtext import content_parts
     from services.notifications import media_info, public_media_url
     from fastapi import HTTPException
@@ -59,7 +72,7 @@ def _send_qq_msg(api_url, endpoint, payload):
         local = (shared.rstrip("/")+"/"+item["url"][len("/static/"):]) if shared else None
         if item["image"] and local and (endpoint == "send_group_msg" or path.stat().st_size <= 64*1024):
             segments.append({"type":"image","data":{"file":"file://"+local}})
-        elif not item["image"] and local and endpoint == "send_group_msg":
+        elif not item["image"] and local and endpoint == "send_group_msg" and path.stat().st_size <= 1024*1024:
             files.append((local,name))
         else:
             segments.append({"type":"text","data":{"text":"\n"+name+"（7 天内有效）: "+public_media_url(item)}})

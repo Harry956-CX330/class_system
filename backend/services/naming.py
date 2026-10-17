@@ -29,24 +29,39 @@ def validate_pattern(pattern):
         raise HTTPException(422,"命名规则包含未知变量或无效括号")
     return pattern
 
-def compute_submit_filename(pattern, student, task, group_project_id, original_filename, db, seq=1):
+def group_labels(db, project_ids):
+    """Resolve groups once per archive, including leaders who have not submitted."""
+    if not project_ids:
+        return {}
+    projects = {p.id: p for p in db.query(GroupProject).filter(GroupProject.id.in_(project_ids)).all()}
+    rows = db.query(GroupAssignment).filter(GroupAssignment.project_id.in_(project_ids)).order_by(GroupAssignment.id).all()
+    leader_ids = {r.student_id for r in rows if r.role == 'leader'}
+    users = {u.id: u for u in db.query(User).filter(User.id.in_(leader_ids)).all()} if leader_ids else {}
+    leaders = {(r.project_id, r.group_number): users.get(r.student_id) for r in rows if r.role == 'leader'}
+    names = {}
+    for project in projects.values():
+        try:
+            value = json.loads(project.group_names or '{}')
+            names[project.id] = value if isinstance(value, dict) else {}
+        except (ValueError, TypeError):
+            names[project.id] = {}
+    labels = {}
+    for row in rows:
+        group = names.get(row.project_id, {}).get(str(row.group_number), f'第{row.group_number}组')
+        user = leaders.get((row.project_id, row.group_number))
+        labels[(row.project_id, row.student_id)] = (group, (user.real_name or user.username) if user else '未设置组长')
+    return labels
+
+
+def compute_submit_filename(pattern, student, task, group_project_id, original_filename, db, seq=1, groups=None):
     validate_pattern(pattern)
     sid = student.student_id or str(student.id)
     group, leader = "未分组", "未设置组长"
     project_id = group_project_id or getattr(task,"group_project_id",None)
     if project_id and ("{group}" in pattern or "{leader}" in pattern):
-        assignment = db.query(GroupAssignment).filter_by(project_id=project_id,student_id=student.id).first()
-        if assignment:
-            group = f"第{assignment.group_number}组"
-            project = db.get(GroupProject,project_id)
-            try:
-                group = json.loads(project.group_names or "{}").get(str(assignment.group_number),group) if project else group
-            except (ValueError,TypeError,AttributeError):
-                pass
-            row = db.query(GroupAssignment).filter_by(project_id=project_id,group_number=assignment.group_number,role="leader").first()
-            user = db.get(User,row.student_id) if row else None
-            if user:
-                leader = user.real_name or user.username
+        if groups is None:
+            groups = group_labels(db, {project_id})
+        group, leader = groups.get((project_id, student.id), (group, leader))
     values = dict(name=student.real_name or student.username,sid=sid,sid2=sid[-2:],sid3=sid[-3:],
         task=task.title,orig=os.path.splitext((original_filename or "附件").replace("\\","/").split("/")[-1])[0],
         group=group,leader=leader,date=task.created_at.strftime("%Y%m%d") if getattr(task,"created_at",None) else "",seq=f"{seq:02d}")

@@ -13,8 +13,9 @@
     >
       <div class="logo-container">
         <div class="logo-text">
-          <div class="logo-line1">数科2441班</div>
-          <div class="logo-line2">智能班务系统</div>
+          <div class="logo-line1">sk2441班务</div>
+          <div class="logo-line2">班级事务，有序进行</div>
+          <div class="build-version" :title="'构建版本 ' + buildRevision">v{{ appVersion }} · {{ buildRevision }}</div>
         </div>
       </div>
       <el-menu
@@ -235,7 +236,7 @@
                 </div>
               </div>
             </div>
-            <img v-if="!isMobile" src="../../public/logo.png" alt="welcome" class="welcome-img"/>
+            <img v-if="!isMobile" src="/icons/icon-192.png" alt="sk2441班徽" class="welcome-img"/>
           </div>
 
           <div class="section-title">获奖统计</div>
@@ -540,6 +541,8 @@ import { ElMessageBox } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
 import api from '../api'
 import InstallApp from '../components/InstallApp.vue'
+const appVersion = __APP_VERSION__
+const buildRevision = __APP_REVISION__
 
 import { 
   DataAnalysis, Bell, Document, Medal, Stamp, FolderOpened, 

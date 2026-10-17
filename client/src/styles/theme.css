@@ -3,7 +3,8 @@
 * { box-sizing:border-box; } body { margin:0; } #app { min-height:100dvh; } button,input,textarea { font:inherit; } a { color:var(--el-color-primary); } :focus-visible { outline:3px solid #6cc7ca; outline-offset:3px; } [hidden] { display:none!important; }
 #app .admin-layout { background:#f3f6fa; }
 #app .sidebar { background:#142b3b; width:236px; border-right:1px solid #203c4e; }
-#app .logo-container { background:#142b3b; height:84px; }
+#app .logo-container { background:#142b3b; height:108px; }
+.build-version { color:#92b8c5; font-size:10px; letter-spacing:.5px; margin-top:9px; }
 #app .logo-text { text-align:left; padding-left:16px; border-left:3px solid #54c1ba; }
 #app .logo-line1 { font-size:18px; letter-spacing:2px; }
 #app .logo-line2 { color:#93b0bc; margin-top:6px; }

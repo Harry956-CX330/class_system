@@ -1,11 +1,14 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        APP_REVISION: ${APP_REVISION:-unknown}
     container_name: class-system
     ports:
       - "8000:8000"
     cpus: 1.5
-    mem_limit: 1024m
+    mem_limit: 512m
     pids_limit: 128
     environment:
       MAX_UPLOAD_MB: "100"
@@ -39,6 +42,11 @@ services:
       # 上传文件持久化
       - ./uploads:/app/static/uploads
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
 
   napcat:
     profiles: ["qq"]

@@ -8,16 +8,17 @@
       </div>
     </div>
 
+    <div class="survey-editor-heading"><div><span class="editor-eyebrow">问卷设计</span><h2>{{ form.title || '收集每一份想法' }}</h2><p>先设置问卷，再添加题目，发布前可查看填写效果。</p></div><el-tag effect="plain">{{ form.questions.length }} 道题目</el-tag></div>
     <el-alert v-if="hasResponses" title="已有答卷：题目和匿名设置已锁定，可调整标题、说明、截止时间及结果展示。" type="info" :closable="false" />
     <el-button v-if="editId" class="copy-survey" @click="copySurvey">复制为新问卷</el-button>
     <div class="settings-panel">
-      <div class="settings-toggle" @click="settingsOpen = !settingsOpen">
+      <button type="button" class="settings-toggle" :aria-expanded="settingsOpen" @click="settingsOpen = !settingsOpen">
         <span class="toggle-title">
           <el-icon :class="{ rotated: settingsOpen }"><ArrowRight /></el-icon>
           问卷设置
         </span>
         <span class="toggle-summary" v-if="!settingsOpen">{{ form.title || '未命名问卷' }}</span>
-      </div>
+      </button>
       <el-collapse-transition>
         <div v-show="settingsOpen" class="settings-body">
           <el-form 
@@ -61,7 +62,7 @@
     </div>
 
     <div class="question-toolbar">
-      <el-button type="primary" :icon="Plus" @click="addQuestion('text')">添加题目</el-button>
+      <el-button type="primary" :icon="Plus" :disabled="hasResponses" @click="addQuestion('text')">添加题目</el-button>
       <el-divider direction="vertical" v-if="!isMobile" />
       <div class="type-btns">
         <el-button 
@@ -69,13 +70,14 @@
           :type="'default'"
           plain
           size="small"
+          :disabled="hasResponses"
           @click="addQuestion(t.value)"
         >
           {{ t.icon }} {{ t.label }}
         </el-button>
       </div>
       <span class="toolbar-hint" v-if="form.questions.length === 0">点击上方按钮添加第一道题目</span>
-      <span class="toolbar-hint" v-else>共 {{ form.questions.length }} 题 · 拖拽左侧手柄排序</span>
+      <span class="toolbar-hint" v-else>共 {{ form.questions.length }} 题 · 使用上下按钮排序</span>
     </div>
 
     <div class="question-list" ref="questionListRef">
@@ -84,20 +86,18 @@
         :key="q._key"
         class="question-card"
         :class="{ dragging: dragIndex === index }"
-        :draggable="!hasResponses && !isMobile"
-        @dragstart="onDragStart(index, $event)"
         @dragover.prevent="onDragOver(index, $event)"
         @dragend="onDragEnd"
         @drop="onDrop(index)"
       >
-        <div class="card-drag-handle" title="拖拽排序">
+        <div class="card-drag-handle" title="拖拽排序" :draggable="!hasResponses && !isMobile" @dragstart="onDragStart(index, $event)">
           <el-icon><Rank /></el-icon>
         </div>
 
         <div class="card-body">
           <div class="q-order-controls"><el-button size="small" :disabled="hasResponses || index === 0" @click="moveQuestion(index,-1)" aria-label="题目上移">↑ 上移</el-button><el-button size="small" :disabled="hasResponses || index === form.questions.length - 1" @click="moveQuestion(index,1)" aria-label="题目下移">↓ 下移</el-button></div>
           <div class="q-title-row">
-            <span class="q-number">{{ q.type_label || 'Q' + (index + 1) }}</span>
+            <span class="q-number">{{ String(index + 1).padStart(2, '0') }}</span>
             <el-input
               v-model="q.question_text" :disabled="hasResponses"
               placeholder="请输入题干内容"
@@ -105,11 +105,11 @@
               :class="{ 'is-empty': !q.question_text }"
             />
             <el-dropdown trigger="click" @command="(cmd) => handleQAction(cmd, index)">
-              <el-button link class="q-more-btn"><el-icon><MoreFilled /></el-icon></el-button>
+              <el-button link class="q-more-btn" :disabled="hasResponses" :aria-label="'第' + (index + 1) + '题操作'"><el-icon><MoreFilled /></el-icon></el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="copy"><el-icon><CopyDocument /></el-icon> 复制此题</el-dropdown-item>
-                  <el-dropdown-item command="delete" divided><el-icon><Delete /></el-icon> 删除此题</el-dropdown-item>
+                  <el-dropdown-item command="copy" :disabled="hasResponses"><el-icon><CopyDocument /></el-icon> 复制此题</el-dropdown-item>
+                  <el-dropdown-item command="delete" :disabled="hasResponses" divided><el-icon><Delete /></el-icon> 删除此题</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -126,7 +126,7 @@
           </div>
 
           <div class="q-desc-row">
-            <RichEditor v-model="q.description" :disabled="hasResponses" />
+            <details :open="!!q.description" class="question-description"><summary>题目说明、图片与附件（选填）</summary><RichEditor v-model="q.description" :disabled="hasResponses" /></details>
           </div>
 
           <div v-if="q.question_type === 'single' || q.question_type === 'multiple'" class="q-options">
@@ -149,12 +149,13 @@
               <el-button
                 v-if="getOptions(q).length > 2"
                 link
+                :disabled="hasResponses"
                 type="danger"
                 :icon="Close"
                 @click="removeOption(q, oi)"
               />
             </div>
-            <el-button link type="primary" :icon="Plus" class="add-option-btn" @click="addOption(q)">
+            <el-button link type="primary" :icon="Plus" :disabled="hasResponses" class="add-option-btn" @click="addOption(q)">
               {{ getOptions(q).some(o => !o) ? '' : '添加选项' }}
             </el-button>
           </div>
@@ -378,6 +379,7 @@ function goBack() {
 }
 
 async function handleSave() {
+  if (saving.value) return
   if (!form.title.trim()) return ElMessage.warning('请输入问卷标题')
   if (form.questions.length === 0) return ElMessage.warning('请至少添加一道题目')
   
@@ -392,6 +394,12 @@ async function handleSave() {
   if (invalidQ >= 0) {
     return ElMessage.warning(`第 ${invalidQ + 1} 题：选项类题目至少需要 2 个有效选项`)
   }
+  const duplicateQ = form.questions.findIndex(q => {
+    if (!['single', 'multiple'].includes(q.question_type)) return false
+    const options = getOptions(q).map(o => o.trim()).filter(Boolean)
+    return new Set(options).size !== options.length
+  })
+  if (duplicateQ >= 0) return ElMessage.warning(`第 ${duplicateQ + 1} 题：选项内容不能重复`)
 
   if (form.questions.some(q => !q.question_text.trim())) return ElMessage.warning('每道题目都需要题干')
   saving.value = true
@@ -461,6 +469,13 @@ async function loadSurvey() {
 </script>
 
 <style scoped>
+.survey-editor-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:14px 4px 24px; }
+.editor-eyebrow { font-size:12px; letter-spacing:2px; color:#65828e; }
+.survey-editor-heading h2 { font-size:24px; color:#1c3c51; margin:8px 0; overflow-wrap:anywhere; }
+.survey-editor-heading p { color:#6c8291; font-size:13px; line-height:1.8; margin:0; }
+.question-description summary { font-size:13px; cursor:pointer; color:#577887; padding:10px 0; }
+.question-description[open] summary { margin-bottom:6px; }
+.settings-toggle { border:0; width:100%; background:transparent; text-align:left; font:inherit; }
 .survey-editor-container {
   max-width: 820px;
   margin: 0 auto;

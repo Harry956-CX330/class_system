@@ -1,10 +1,12 @@
 from contextlib import asynccontextmanager
+import os
 import anyio.to_thread
 from fastapi import FastAPI, HTTPException
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from services.staticfiles import CompressedStaticFiles
+from services.buildinfo import inspect_build
 from config import CORS_ORIGINS, FRONTEND_DIST, THREAD_TOKENS, UPLOAD_DIR, prepare_directories
 from database import engine, validate_schema
 from middleware import ResourceLimitsMiddleware
@@ -19,6 +21,9 @@ async def lifespan(app):
     prepare_directories()
     anyio.to_thread.current_default_thread_limiter().total_tokens = THREAD_TOKENS
     validate_schema()
+    app.state.frontend_build = inspect_build(FRONTEND_DIST)
+    if os.environ.get('REQUIRE_FRONTEND_BUILD') == '1' and not app.state.frontend_build['ready']:
+        raise RuntimeError('Frontend build validation failed: ' + app.state.frontend_build.get('error', 'unknown'))
     yield
     engine.dispose()
 
@@ -42,7 +47,8 @@ def health():
     from sqlalchemy import text
     with engine.connect() as connection:
         connection.execute(text("SELECT 1"))
-    return {"status": "ok"}
+    return {"status": "ok", "revision": os.environ.get('APP_REVISION', 'unknown'),
+            "frontend": getattr(app.state, 'frontend_build', {"ready": False})}
 
 
 
@@ -59,7 +65,10 @@ def serve_spa(full_path: str):
     if not path.is_relative_to(root):
         raise HTTPException(404, "文件不存在")
     if path.is_file():
-        return FileResponse(path)
+        return FileResponse(path, headers={"Cache-Control": "no-cache"},
+                            media_type="application/manifest+json" if path.suffix == '.webmanifest' else None)
+    if path.suffix or full_path.startswith(('assets/', 'icons/')):
+        raise HTTPException(404, "文件不存在")
     index = root / "index.html"
     if index.is_file():
         return FileResponse(index, headers={"Cache-Control": "no-cache"})

@@ -34,7 +34,7 @@ class ResourceLimitsMiddleware:
             return await reject(400, "无效的 Content-Length")
         body_limit = self.max_body if upload else min(self.max_body, 1024*1024)
         if length > body_limit:
-            return await reject(413, f"请求总大小超过 {self.max_body // 1024 // 1024}MB 限制")
+            return await reject(413, f"请求总大小超过 {body_limit // 1024 // 1024} MiB 限制")
         if (upload and self.uploads >= self.upload_limit) or (download and self.downloads >= self.download_limit):
             return await reject(503, "文件处理繁忙，请稍后重试")
         if upload:
@@ -61,7 +61,7 @@ class ResourceLimitsMiddleware:
             if overflow:
                 if not started:
                     started = True
-                    await reject(413, f"请求总大小超过 {self.max_body // 1024 // 1024}MB 限制")
+                    await reject(413, f"请求总大小超过 {body_limit // 1024 // 1024} MiB 限制")
                 return
             if message["type"] == "http.response.start":
                 started = True

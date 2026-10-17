@@ -5,6 +5,7 @@ python-multipart==0.0.32
 pyjwt==2.15.1
 bcrypt==5.0.0
 openpyxl==3.1.5
+python-docx==1.2.0
 nh3==0.3.7
 Pillow==13.0.0
 starlette==1.8.0
