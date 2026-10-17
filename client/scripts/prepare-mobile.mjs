@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, access } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, access, readdir, unlink } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 const platform = process.argv[2]
 if (!['android','ios'].includes(platform)) throw new Error('Choose android or ios')
@@ -14,6 +14,12 @@ await writeFile('capacitor.config.json', JSON.stringify(configured,null,2)+'\n')
 function cap(...args) { const r=spawnSync(process.execPath,['node_modules/@capacitor/cli/bin/capacitor',...args],{stdio:'inherit'}); if(r.status)process.exit(r.status) }
 try { await access(platform) } catch { cap('add',platform) }
 cap('sync',platform)
+// Android's asset merger treats x.js and x.js.gz as duplicate resources.
+// Precompressed copies belong to the HTTP server, not the native bundle.
+const nativeAssets = platform === 'android' ? 'android/app/src/main/assets/public/assets' : 'ios/App/App/public/assets'
+for (const name of await readdir(nativeAssets)) {
+  if (name.endsWith('.gz')) await unlink(`${nativeAssets}/${name}`)
+}
 if (platform === 'android') {
   const dir='android/app/src/main/res/xml'
   await mkdir(dir,{recursive:true})
