@@ -238,12 +238,7 @@
         </el-row>
 
         <el-form-item label="实践内容描述 (选填)">
-          <el-input 
-            v-model="recordForm.description" 
-            type="textarea" 
-            :rows="3" 
-            placeholder="简要描述活动内容和您的主要贡献..." 
-          />
+          <RichEditor v-model="recordForm.description" />
         </el-form-item>
       </el-form>
       

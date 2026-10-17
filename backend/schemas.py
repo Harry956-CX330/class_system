@@ -3,9 +3,45 @@ from typing import Optional
 from pydantic import BaseModel
 
 
+from pydantic import field_validator, model_validator, Field
+from services.richtext import clean_html
+
+class RichTextModel(BaseModel):
+    @field_validator("title", mode="before", check_fields=False)
+    @classmethod
+    def check_title(cls,value):
+        if value is None:
+            return value
+        if not value.strip() or len(value)>200:
+            raise ValueError("标题需要 1 至 200 个字符")
+        return value.strip()
+
+    @field_validator("deadline", mode="before", check_fields=False)
+    @classmethod
+    def check_deadline(cls,value):
+        if not value:
+            return value
+        from datetime import timezone, timedelta
+        try:
+            parsed = datetime.fromisoformat(value)
+            if parsed.tzinfo:
+                parsed = parsed.astimezone(timezone(timedelta(hours=8))).replace(tzinfo=None)
+            return parsed.strftime("%Y-%m-%d %H:%M:%S")
+        except (TypeError,ValueError):
+            raise ValueError("截止时间格式无效")
+
+    @field_validator("content", "description", "record_text", "notes", mode="before", check_fields=False)
+    @classmethod
+    def clean_content(cls, value):
+        if value is None:
+            return None
+        if len(value) > 100000:
+            raise ValueError("正文不能超过 100000 字符")
+        return clean_html(value)
+
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    username: str = Field(min_length=1, max_length=50)
+    password: str = Field(min_length=1, max_length=200)
 
 
 class LoginResponse(BaseModel):
@@ -142,7 +178,7 @@ class TextbookBatchOrderRequest(BaseModel):
     textbook_ids: list[int]
 
 
-class TextbookCreate(BaseModel):
+class TextbookCreate(RichTextModel):
     course_name: str = ""
     name: str
     isbn: str = ""
@@ -216,13 +252,13 @@ class UserImportItem(BaseModel):
     password: str
 
 
-class NoticeCreate(BaseModel):
+class NoticeCreate(RichTextModel):
     title: str
     content: str
     is_urgent: bool = False
 
 
-class NoticeUpdate(BaseModel):
+class NoticeUpdate(RichTextModel):
     title: Optional[str] = None
     content: Optional[str] = None
     is_urgent: Optional[bool] = None
@@ -340,7 +376,7 @@ class CertificateStats(BaseModel):
     student_count: int
 
 
-class SocialPracticeCreate(BaseModel):
+class SocialPracticeCreate(RichTextModel):
     student_id: int
     activity_name: str
     role: str = ""
@@ -349,7 +385,7 @@ class SocialPracticeCreate(BaseModel):
     end_date: str
 
 
-class SocialPracticeUpdate(BaseModel):
+class SocialPracticeUpdate(RichTextModel):
     activity_name: Optional[str] = None
     role: Optional[str] = None
     description: Optional[str] = None
@@ -374,7 +410,7 @@ class SocialPracticeResponse(BaseModel):
         from_attributes = True
 
 
-class FileTaskCreate(BaseModel):
+class FileTaskCreate(RichTextModel):
     title: str
     description: str = ""
     deadline: str
@@ -414,21 +450,27 @@ class FileSubmissionResponse(BaseModel):
         from_attributes = True
 
 
-class SurveyQuestionCreate(BaseModel):
-    question_text: str
+class SurveyQuestionCreate(RichTextModel):
+    question_text: str = Field(min_length=1, max_length=500)
     description: str = ""
     question_type: str = "text"
     options: str = ""
 
 
-class SurveyCreate(BaseModel):
+class SurveyCreate(RichTextModel):
     title: str
     description: str = ""
     deadline: Optional[str] = None
     is_anonymous: bool = False
     show_results: bool = True
     allow_multiple: bool = False
-    questions: list[SurveyQuestionCreate] = []
+    questions: list[SurveyQuestionCreate] = Field(min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def validate_questions(self):
+        from services.surveys import validate_questions
+        validate_questions(self.questions)
+        return self
 
 
 class SurveyQuestionResponse(BaseModel):
@@ -456,6 +498,8 @@ class SurveyResponse(BaseModel):
     author_name: str = ""
     author_qq: str = ""
     response_count: int = 0
+    user_submitted: bool = False
+    has_responses: bool = False
     questions: list[SurveyQuestionResponse] = []
 
     class Config:
@@ -464,11 +508,11 @@ class SurveyResponse(BaseModel):
 
 class SurveyAnswerItem(BaseModel):
     question_id: int
-    answer_text: str
+    answer_text: str = Field(max_length=5000)
 
 
 class SurveySubmitRequest(BaseModel):
-    answers: list[SurveyAnswerItem]
+    answers: list[SurveyAnswerItem] = Field(min_length=1, max_length=100)
 
 
 class SurveyResultResponse(BaseModel):
@@ -490,7 +534,7 @@ class SurveyResultListResponse(BaseModel):
     questions: list[SurveyResultResponse] = []
 
 
-class ClassMeetingCreate(BaseModel):
+class ClassMeetingCreate(RichTextModel):
     title: str
     meeting_date: str
     location: str = ""
@@ -500,7 +544,7 @@ class ClassMeetingCreate(BaseModel):
     host_leader_id: Optional[int] = None
 
 
-class ClassMeetingUpdate(BaseModel):
+class ClassMeetingUpdate(RichTextModel):
     title: Optional[str] = None
     meeting_date: Optional[str] = None
     location: Optional[str] = None
@@ -533,7 +577,7 @@ class ClassMeetingResponse(BaseModel):
         from_attributes = True
 
 
-class MeetingRecordUpdate(BaseModel):
+class MeetingRecordUpdate(RichTextModel):
     record_text: str = ""
     images: list[str] = []
 
@@ -543,12 +587,12 @@ class BatchDeleteRequest(BaseModel):
     to_date: str
 
 
-class ResourceCategoryCreate(BaseModel):
+class ResourceCategoryCreate(RichTextModel):
     name: str
     description: str = ""
 
 
-class ResourceCategoryUpdate(BaseModel):
+class ResourceCategoryUpdate(RichTextModel):
     name: Optional[str] = None
     description: Optional[str] = None
 
@@ -670,7 +714,7 @@ class ParticipantResponse(BaseModel):
         from_attributes = True
 
 
-class ActivityCreate(BaseModel):
+class ActivityCreate(RichTextModel):
     title: str
     description: str = ""
     location: str = ""
@@ -680,7 +724,7 @@ class ActivityCreate(BaseModel):
     checkin_interval: int = 2
 
 
-class ActivityUpdate(BaseModel):
+class ActivityUpdate(RichTextModel):
     title: Optional[str] = None
     description: Optional[str] = None
     location: Optional[str] = None

@@ -2,6 +2,8 @@
 
 基于 Vue 3、FastAPI、SQLAlchemy 和 SQLite 的班级事务管理系统。当前版本保留已有业务 API 和数据库结构，适用于约 50 名用户的小型部署。
 
+版本 2 增加三端自适应界面、富文本与图文附件通知、问卷校验、完整 ZIP 下载及 3 Mbps 带宽下的总限速。见 [更新记录](CHANGELOG.md)、[部署说明](DEPLOYMENT.md) 和 [Android/iOS 安装说明](MOBILE.md)。Android APK 可在 Actions 的 Android APK 工作流成功后下载。
+
 ## 部署
 
 服务器需预先提供完整的 SQLite 数据库文件 `data.db`。数据库、上传内容、邮件配置和密钥均作为服务器运行数据，不存放在 Git 仓库。首次部署前请把现有数据库放在项目根目录，并备份数据库和上传目录。
@@ -24,6 +26,6 @@ docker compose up -d --build app
 
 ## 本地开发
 
-后端从 `backend/` 目录以 `uvicorn main:app` 运行；前端在 `client/` 目录执行 `npm ci` 和 `npm run dev`。Vite 开发服务器将 `/api` 和 `/static` 代理至本地 8000 端口。
+后端使用 Python 3.11+，安装 `backend/requirements.txt` 并设置指向完整数据库副本的 `DATABASE_URL`，从 `backend/` 目录以 `uvicorn main:app` 运行。前端使用 Node.js 22+，在 `client/` 目录执行 `npm ci --legacy-peer-deps` 和 `npm run dev`。Vite 将 `/api` 和 `/static` 代理至本地 8000 端口。
 
 应用启动时只读校验数据库所需结构；不会自动创建或修改表。请使用与当前代码兼容的数据库。

@@ -79,6 +79,7 @@ def qq_notify_file_task(task_id: int, db: Session = Depends(get_db), current_use
         "group_id": int(cfg.group_id),
         "message": msg,
     })
+    _check_result(result)
     return {"message": "群通知已发送", "result": result}
 
 
@@ -106,7 +107,7 @@ def qq_remind_file_task(task_id: int, db: Session = Depends(get_db), current_use
         msg = (
             f"【数科2441班·作业提醒】\n"
             f"同学 {student.real_name}，你好！\n"
-            f"文件任务「{task.title}」{'截止 ' + deadline_str if deadline_str else ''}你尚未提交，请尽快完成。"
+            f"文件任务「{task.title}」{'截止 ' + deadline_str if deadline_str else ''}你尚未提交，请尽快完成。\n{task.description or ''}"
         )
         result = _send_qq_msg(cfg.api_url, "send_private_msg", {
             "user_id": int(student.qq_number.strip()),
@@ -140,6 +141,7 @@ def qq_notify_survey(survey_id: int, db: Session = Depends(get_db), current_user
         "group_id": int(cfg.group_id),
         "message": msg,
     })
+    _check_result(result)
     return {"message": "群通知已发送", "result": result}
 
 
@@ -167,7 +169,7 @@ def qq_remind_survey(survey_id: int, db: Session = Depends(get_db), current_user
         msg = (
             f"【数科2441班·问卷提醒】\n"
             f"同学 {student.real_name}，你好！\n"
-            f"问卷「{survey.title}」{'截止 ' + deadline_str if deadline_str else ''}你尚未填写，请尽快完成。"
+            f"问卷「{survey.title}」{'截止 ' + deadline_str if deadline_str else ''}你尚未填写，请尽快完成。\n{survey.description or ''}"
         )
         result = _send_qq_msg(cfg.api_url, "send_private_msg", {
             "user_id": int(student.qq_number.strip()),
@@ -199,6 +201,7 @@ def qq_notify_notice(notice_id: int, db: Session = Depends(get_db), current_user
         "group_id": int(cfg.group_id),
         "message": msg,
     })
+    _check_result(result)
     return {"message": "QQ群通知已发送", "result": result}
 
 
@@ -222,6 +225,7 @@ def qq_notify_group_project(project_id: int, db: Session = Depends(get_db), curr
         "group_id": int(cfg.group_id),
         "message": msg,
     })
+    _check_result(result)
     return {"message": "QQ群通知已发送", "result": result}
 
 
@@ -282,6 +286,7 @@ def qq_notify_activity(activity_id: int, db: Session = Depends(get_db), current_
         "group_id": int(cfg.group_id),
         "message": msg,
     })
+    _check_result(result)
     return {"message": "QQ群通知已发送", "result": result}
 
 
@@ -369,6 +374,7 @@ def qq_notify_class_meeting(meeting_id: int, db: Session = Depends(get_db), curr
         "group_id": int(cfg.group_id),
         "message": msg,
     })
+    _check_result(result)
     return {"message": "QQ群通知已发送", "result": result}
 
 
@@ -421,3 +427,8 @@ def qq_remind_class_meeting_leaders(meeting_id: int, db: Session = Depends(get_d
         "sent": sent, "failed": failed,
     }
 
+
+
+def _check_result(result):
+    if not (result.get("status")=="ok" or result.get("retcode")==0):
+        raise HTTPException(502,result.get("error") or "QQ 服务未确认发送成功，请检查机器人状态")

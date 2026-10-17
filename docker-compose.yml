@@ -11,16 +11,27 @@ services:
       MAX_UPLOAD_MB: "100"
       MAX_IMPORT_MB: "5"
       MAX_CONCURRENT_UPLOADS: "2"
-      MAX_CONCURRENT_DOWNLOADS: "8"
+      MAX_CONCURRENT_DOWNLOADS: "4"
       MAX_CONCURRENT_ARCHIVES: "1"
       MAX_ARCHIVE_MB: "2048"
       MIN_FREE_DISK_MB: "256"
       THREAD_TOKENS: "8"
+      DOWNLOAD_KIB_PER_SECOND: "280"
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://8.163.67.49:8000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://8.163.67.49:8000}
+      QQ_UPLOAD_ROOT: /app/class-uploads
+      SMTP_CONFIG_PATH: /app/data/smtp_config.json
+      KDOCS_CONFIG_PATH: /app/data/kdocs_config.json
       # 建议部署时注入随机 SECRET_KEY；更换会使当前用户 token 失效。
       SECRET_KEY: ${SECRET_KEY:?Set a strong random SECRET_KEY before deployment}
       DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/data.db}
       TEMP_DIR: /app/archive-tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     volumes:
+      - ./config:/app/data
       # Place the existing, backed-up database at the repository root before startup.
       - ./data.db:/app/data/data.db
       # Temporary archives are disk-backed; keep them off the application image layer.
@@ -30,6 +41,7 @@ services:
     restart: unless-stopped
 
   napcat:
+    profiles: ["qq"]
     image: mlikiowa/napcat-docker:latest
     container_name: napcat
     restart: always
@@ -37,11 +49,12 @@ services:
     mem_limit: 768m
     pids_limit: 128
     ports:
-      - "6099:6099"   # WebUI 管理面板
-      - "3001:3001"   # OneBot HTTP API
+      - "127.0.0.1:6099:6099"   # WebUI 管理面板
+      - "127.0.0.1:3001:3001"   # OneBot HTTP API
     environment:
       - TZ=Asia/Shanghai
     volumes:
+      - ./uploads:/app/class-uploads:ro
       - ./napcat/config:/app/napcat/config
       - ./napcat/qq:/app/.config/QQ
       - ./napcat/plugins:/app/napcat/plugins

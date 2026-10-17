@@ -5,7 +5,11 @@ from auth import require_admin
 from auth import verify_password
 from config import ZIP_BATCH_MAX_SIZE, MAX_IMPORT_BYTES
 from database import get_db
-from fastapi import APIRouter
+from fastapi import APIRouter, Request, Response
+from security import login_accounts
+from auth import SECRET_KEY
+import hmac
+import hashlib
 from fastapi import Depends
 from fastapi import File
 from fastapi import HTTPException
@@ -42,14 +46,20 @@ import csv
 import io
 
 router = APIRouter(tags=["users"])
+_DUMMY_HASH = get_password_hash("not-a-real-account-password")
 
 
 @router.post("/api/login", response_model=LoginResponse)
-def login(req: LoginRequest, db: Session = Depends(get_db)):
+def login(req: LoginRequest, response: Response, request: Request, db: Session = Depends(get_db)):
+    key = hmac.new(SECRET_KEY.encode(), req.username.strip().lower().encode(), hashlib.sha256).digest()
+    if not login_accounts.allow(key, 8, 300):
+        raise HTTPException(429, "该账号登录尝试过多，请五分钟后再试", headers={"Retry-After": "300"})
     user = db.query(User).filter(User.username == req.username).first()
-    if not user or not verify_password(req.password, user.hashed_password):
+    valid = verify_password(req.password, user.hashed_password if user else _DUMMY_HASH)
+    if not user or not valid:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
     token = create_access_token(data={"user_id": user.id})
+    response.set_cookie("media_session", token, max_age=3600, httponly=True, secure=request.url.scheme == "https", samesite="strict", path="/static")
     return LoginResponse(access_token=token, user=user_to_dict(user))
 
 
@@ -71,6 +81,8 @@ def get_my_profile(db: Session = Depends(get_db), current_user: User = Depends(g
 
 @router.post("/api/users", response_model=UserResponse)
 def create_user(data: UserCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    if (data.role == "admin" or data.is_class_leader) and current_user.role != "admin":
+        raise HTTPException(403,"仅系统管理员可设置管理权限")
     existing = db.query(User).filter(User.username == data.username).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="用户名已存在")
@@ -144,14 +156,11 @@ def update_class_committee(user_id: int, data: ClassCommitteeUpdate, db: Session
 
 
 @router.get("/api/counselor", response_model=CounselorInfoResponse)
-def get_counselor_info(db: Session = Depends(get_db)):
+def get_counselor_info(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """获取辅导员信息"""
     info = db.query(CounselorInfo).first()
     if not info:
-        info = CounselorInfo(name="", office="", phone="", qq_number="")
-        db.add(info)
-        db.commit()
-        db.refresh(info)
+        return {"id":0,"name":"","office":"","phone":"","qq_number":""}
     return info
 
 
@@ -302,7 +311,10 @@ def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db), c
     if data.dorm is not None: user.dorm = data.dorm
     if data.class_position is not None: user.class_position = data.class_position
     if data.show_in_committee is not None: user.show_in_committee = data.show_in_committee
-    if data.is_class_leader is not None: user.is_class_leader = data.is_class_leader
+    if data.is_class_leader is not None:
+        if current_user.role != "admin":
+            raise HTTPException(403,"仅系统管理员可调整班委权限")
+        user.is_class_leader = data.is_class_leader
     if data.is_dorm_leader is not None: user.is_dorm_leader = data.is_dorm_leader
     db.commit()
     db.refresh(user)
@@ -325,8 +337,8 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
 def change_password(data: PasswordChange, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if not verify_password(data.old_password, current_user.hashed_password):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="旧密码错误")
-    if len(data.new_password) < 6:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="新密码长度不能少于6位")
+    if len(data.new_password) < 8 or len(data.new_password.encode("utf-8")) > 72:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="新密码至少 8 位，且 UTF-8 编码不能超过 72 字节")
     current_user.hashed_password = get_password_hash(data.new_password)
     db.commit()
     return {"message": "密码修改成功"}

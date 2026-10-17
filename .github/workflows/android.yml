@@ -1,0 +1,41 @@
+name: Android APK
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: Application server URL
+        required: true
+        default: http://8.163.67.49:8000
+  push:
+    branches: [main]
+    paths: ['client/**', '.github/workflows/android.yml']
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - run: npm ci --legacy-peer-deps
+        working-directory: client
+      - run: npm run build && npm run mobile:android
+        working-directory: client
+        env:
+          MOBILE_SERVER_URL: ${{ inputs.server_url || 'http://8.163.67.49:8000' }}
+      - run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+        working-directory: client/android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: class-system-android-debug
+          path: client/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14

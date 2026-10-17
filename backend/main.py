@@ -4,10 +4,13 @@ from fastapi import FastAPI, HTTPException
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
+from services.staticfiles import CompressedStaticFiles
 from config import CORS_ORIGINS, FRONTEND_DIST, THREAD_TOKENS, UPLOAD_DIR, prepare_directories
 from database import engine, validate_schema
 from middleware import ResourceLimitsMiddleware
+from security import SecurityMiddleware
+from routers.transfers import TransferTicketMiddleware
+from routers import media, transfers
 from routers import users, notices, settings, grades, certificates, activities, groups, social_practices, dashboard, file_tasks, surveys, meetings, resources, textbooks, qq
 
 
@@ -21,14 +24,16 @@ async def lifespan(app):
 
 
 prepare_directories()
-app = FastAPI(title="数科2441班数据管理系统", version="1.6", lifespan=lifespan)
+app = FastAPI(title="数科2441班数据管理系统", version="2.0", lifespan=lifespan)
 app.add_middleware(ResourceLimitsMiddleware)
+app.add_middleware(TransferTicketMiddleware)
+app.add_middleware(SecurityMiddleware)
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["127.0.0.1"])
 app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"],
                    expose_headers=["Content-Disposition", "Accept-Ranges", "Content-Range", "Retry-After"])
 for module in (users, notices, settings, grades, certificates, activities, groups, social_practices,
-               dashboard, file_tasks, surveys, meetings, resources, textbooks, qq):
+               dashboard, file_tasks, surveys, meetings, resources, textbooks, qq, media, transfers):
     app.include_router(module.router)
 
 
@@ -40,9 +45,9 @@ def health():
     return {"status": "ok"}
 
 
-app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
+
 if (FRONTEND_DIST / "assets").is_dir():
-    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="frontend_assets")
+    app.mount("/assets", CompressedStaticFiles(directory=FRONTEND_DIST / "assets"), name="frontend_assets")
 
 
 @app.get("/{full_path:path}", include_in_schema=False)

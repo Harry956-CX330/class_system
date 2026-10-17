@@ -1,36 +1,58 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import jwt
 import os
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
+import bcrypt
 from database import get_db
 from models import User
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "class-system-secret-key-2024")
+from config import DATA_DIR
+from pathlib import Path
+import secrets
+
+def _load_secret():
+    configured = os.environ.get("SECRET_KEY")
+    if configured:
+        if len(configured.encode()) < 32:
+            raise RuntimeError("SECRET_KEY must contain at least 32 bytes")
+        return configured
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    path = DATA_DIR / ".session-secret"
+    try:
+        with path.open("x", encoding="ascii") as stream:
+            stream.write(secrets.token_urlsafe(48))
+        path.chmod(0o600)
+    except FileExistsError:
+        pass
+    return path.read_text(encoding="ascii").strip()
+
+SECRET_KEY = _load_secret()
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 1
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     # bcrypt 4.x 限制密码最大 72 字节
     plain_password = plain_password[:72].encode('utf-8')[:72].decode('utf-8', errors='ignore')
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("ascii"))
+    except (ValueError,TypeError,UnicodeError):
+        return False
 
 
 def get_password_hash(password: str) -> str:
     password = password[:72].encode('utf-8')[:72].decode('utf-8', errors='ignore')
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("ascii")
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS))
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 

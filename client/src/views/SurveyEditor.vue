@@ -4,10 +4,12 @@
       <el-button link :icon="ArrowLeft" @click="goBack">返回</el-button>
       <div class="topbar-actions">
         <el-button :icon="View" @click="previewVisible = true">预览</el-button>
-        <el-button type="primary" :icon="Check" :loading="saving" @click="handleSave">发布</el-button>
+        <el-button type="primary" :icon="Check" :loading="saving" @click="handleSave">{{ editId ? '保存修改' : '发布问卷' }}</el-button>
       </div>
     </div>
 
+    <el-alert v-if="hasResponses" title="已有答卷：题目和匿名设置已锁定，可调整标题、说明、截止时间及结果展示。" type="info" :closable="false" />
+    <el-button v-if="editId" class="copy-survey" @click="copySurvey">复制为新问卷</el-button>
     <div class="settings-panel">
       <div class="settings-toggle" @click="settingsOpen = !settingsOpen">
         <span class="toggle-title">
@@ -28,7 +30,7 @@
               <el-input v-model="form.title" placeholder="请输入问卷标题" />
             </el-form-item>
             <el-form-item label="问卷说明">
-              <el-input v-model="form.description" type="textarea" :rows="3" placeholder="简要描述问卷目的（选填，支持换行）" />
+              <RichEditor v-model="form.description" />
             </el-form-item>
             <el-form-item label="截止时间">
               <el-date-picker
@@ -42,7 +44,7 @@
             </el-form-item>
             <el-divider style="margin: 12px 0;" />
             <el-form-item label="提交方式">
-              <el-switch v-model="form.is_anonymous" active-text="匿名" inactive-text="实名" />
+              <el-switch v-model="form.is_anonymous" :disabled="hasResponses" active-text="匿名" inactive-text="实名" />
               <span class="setting-tip">匿名提交后，查看结果时不显示提交人姓名，但仍可看到未提交名单</span>
             </el-form-item>
             <el-form-item label="结果可见">
@@ -82,7 +84,7 @@
         :key="q._key"
         class="question-card"
         :class="{ dragging: dragIndex === index }"
-        draggable="true"
+        :draggable="!hasResponses && !isMobile"
         @dragstart="onDragStart(index, $event)"
         @dragover.prevent="onDragOver(index, $event)"
         @dragend="onDragEnd"
@@ -93,10 +95,11 @@
         </div>
 
         <div class="card-body">
+          <div class="q-order-controls"><el-button size="small" :disabled="hasResponses || index === 0" @click="moveQuestion(index,-1)" aria-label="题目上移">↑ 上移</el-button><el-button size="small" :disabled="hasResponses || index === form.questions.length - 1" @click="moveQuestion(index,1)" aria-label="题目下移">↓ 下移</el-button></div>
           <div class="q-title-row">
             <span class="q-number">{{ q.type_label || 'Q' + (index + 1) }}</span>
             <el-input
-              v-model="q.question_text"
+              v-model="q.question_text" :disabled="hasResponses"
               placeholder="请输入题干内容"
               class="q-input"
               :class="{ 'is-empty': !q.question_text }"
@@ -113,7 +116,7 @@
           </div>
 
           <div class="q-meta-row">
-            <el-radio-group v-model="q.question_type" size="small" @change="onTypeChange(q)" class="mobile-wrap-group">
+            <el-radio-group v-model="q.question_type" :disabled="hasResponses" size="small" @change="onTypeChange(q)" class="mobile-wrap-group">
               <el-radio-button value="text">📝 文本</el-radio-button>
               <el-radio-button value="single">○ 单选</el-radio-button>
               <el-radio-button value="multiple">☑ 多选</el-radio-button>
@@ -123,12 +126,7 @@
           </div>
 
           <div class="q-desc-row">
-            <el-input
-              v-model="q.description"
-              placeholder="题目说明（选填，可补充填写注意事项等）"
-              class="q-desc-input"
-              size="small"
-            />
+            <RichEditor v-model="q.description" :disabled="hasResponses" />
           </div>
 
           <div v-if="q.question_type === 'single' || q.question_type === 'multiple'" class="q-options">
@@ -143,7 +141,7 @@
             >
               <span class="option-letter">{{ String.fromCharCode(65 + oi) }}</span>
               <el-input
-                v-model="q._options[oi]"
+                v-model="q._options[oi]" :disabled="hasResponses"
                 :placeholder="'选项 ' + String.fromCharCode(65 + oi)"
                 class="option-input"
                 size="default"
@@ -182,12 +180,12 @@
     >
       <div class="preview-survey">
         <h3 class="preview-title">{{ form.title || '未命名问卷' }}</h3>
-        <p class="preview-desc" v-if="form.description" style="white-space: pre-wrap;">{{ form.description }}</p>
+        <RichContent class="preview-desc" v-if="form.description" style="white-space: pre-wrap;" :content="form.description" />
         <el-tag v-if="form.is_anonymous" size="small" type="info" style="margin-bottom: 12px;">匿名问卷</el-tag>
 
         <div v-for="(q, index) in form.questions" :key="q._key" class="preview-q">
           <div class="preview-q-num">{{ index + 1 }}. {{ q.question_text || '未命名题目' }}</div>
-          <p v-if="q.description" class="preview-q-desc">{{ q.description }}</p>
+          <RichContent v-if="q.description" class="preview-q-desc" :content="q.description" />
 
           <el-input v-if="q.question_type === 'text'" disabled placeholder="请在此输入您的回答..." />
 
@@ -220,11 +218,14 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, View, Check, Plus, Rank, MoreFilled, CopyDocument, Delete, Close, ArrowRight } from '@element-plus/icons-vue'
 import api from '../api'
+import { optionsList } from '../utils/richtext'
 
 const router = useRouter()
 const route = useRoute()
 
 const editId = route.query.id ? parseInt(route.query.id) : null
+const copyId = route.query.copy ? parseInt(route.query.copy) : null
+const hasResponses = ref(false)
 
 // 响应式状态
 const isMobile = ref(false)
@@ -287,11 +288,13 @@ function getOptions(q) {
 }
 
 function addOption(q) {
+  if (hasResponses.value) return
   initOptions(q)
   q._options.push('')
 }
 
 function removeOption(q, idx) {
+  if (hasResponses.value) return
   initOptions(q)
   if (q._options.length <= 2) return
   q._options.splice(idx, 1)
@@ -308,6 +311,7 @@ function onTypeChange(q) {
 }
 
 function addQuestion(type) {
+  if (hasResponses.value) return
   const q = {
     _key: nextKey(),
     question_text: '',
@@ -324,6 +328,7 @@ function addQuestion(type) {
 }
 
 function handleQAction(cmd, index) {
+  if (hasResponses.value) return
   if (cmd === 'copy') {
     const orig = form.questions[index]
     const copy = JSON.parse(JSON.stringify(orig))
@@ -348,8 +353,9 @@ function onDragOver(index, e) {
 }
 
 function onDrop(targetIndex) {
+  if (hasResponses.value) return
   const fromIndex = dragIndex.value
-  if (fromIndex === targetIndex) return
+  if (fromIndex < 0 || fromIndex === targetIndex) return
   const items = [...form.questions]
   const [moved] = items.splice(fromIndex, 1)
   items.splice(targetIndex, 0, moved)
@@ -360,6 +366,13 @@ function onDragEnd() {
   dragIndex.value = -1
 }
 
+function copySurvey() { window.location.assign(`/survey-editor?copy=${editId}`) }
+function moveQuestion(index, delta) {
+  if (hasResponses.value) return
+  const to = index + delta
+  if (to < 0 || to >= form.questions.length) return
+  const [question] = form.questions.splice(index,1); form.questions.splice(to,0,question)
+}
 function goBack() {
   router.push('/surveys')
 }
@@ -380,6 +393,7 @@ async function handleSave() {
     return ElMessage.warning(`第 ${invalidQ + 1} 题：选项类题目至少需要 2 个有效选项`)
   }
 
+  if (form.questions.some(q => !q.question_text.trim())) return ElMessage.warning('每道题目都需要题干')
   saving.value = true
   try {
     const payload = {
@@ -394,7 +408,7 @@ async function handleSave() {
         description: q.description || '',
         question_type: q.question_type,
         options: (q.question_type === 'single' || q.question_type === 'multiple')
-          ? getOptions(q).filter(o => o.trim()).join(',')
+          ? JSON.stringify(getOptions(q).map(o => o.trim()).filter(Boolean))
           : '',
       })),
     }
@@ -415,13 +429,14 @@ async function handleSave() {
 }
 
 async function loadSurvey() {
-  if (!editId) return
+  if (!editId && !copyId) return
   try {
-    const res = await api.get(`/api/surveys/${editId}`)
+    const res = await api.get(`/api/surveys/${editId || copyId}`)
     const survey = res.data
-    form.title = survey.title
+    hasResponses.value = !!survey.has_responses && !copyId
+    form.title = survey.title + (copyId ? '（副本）' : '')
     form.description = survey.description || ''
-    form.deadline = survey.deadline ? survey.deadline.slice(0, 16).replace('T', ' ') : ''
+    form.deadline = survey.deadline ? survey.deadline.slice(0, 19).replace('T', ' ') : ''
     form.is_anonymous = survey.is_anonymous || false
     form.show_results = survey.show_results !== false
     form.allow_multiple = survey.allow_multiple || false
@@ -431,7 +446,7 @@ async function loadSurvey() {
         question_text: q.question_text,
         description: q.description || '',
         question_type: q.question_type,
-        _options: q.options ? q.options.split(',').map(s => s.trim()) : [],
+        _options: optionsList(q.options),
       }
       if (item.question_type === 'single' || item.question_type === 'multiple') {
         if (item._options.length < 2) item._options = ['', '']

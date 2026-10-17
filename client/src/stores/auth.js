@@ -34,6 +34,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function logout() {
+    fetch('/api/logout', { method:'POST', credentials:'same-origin' }).catch(() => {})
     token.value = ''
     user.value = null
     currentView.value = null

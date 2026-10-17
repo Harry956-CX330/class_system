@@ -1,3 +1,7 @@
+import uuid
+import threading
+from services.naming import validate_pattern, safe_component
+_submission_lock = threading.Lock()
 from auth import get_current_user
 from auth import require_admin
 from config import ALLOWED_DOC_EXTENSIONS
@@ -46,7 +50,7 @@ def list_file_tasks(db: Session = Depends(get_db), current_user: User = Depends(
     tasks = db.query(FileTask).order_by(FileTask.created_at.desc()).all()
     result = []
     for t in tasks:
-        submission_count = db.query(FileSubmission).filter(FileSubmission.task_id == t.id).count()
+        submission_count = db.query(func.count(func.distinct(FileSubmission.student_id))).filter(FileSubmission.task_id == t.id).scalar()
         result.append(FileTaskResponse(id=t.id, title=t.title, description=t.description,
                        created_at=t.created_at, deadline=t.deadline, author_id=t.author_id,
                        author_name=t.author.real_name if t.author else "",
@@ -61,6 +65,7 @@ def list_file_tasks(db: Session = Depends(get_db), current_user: User = Depends(
 
 @router.post("/api/file-tasks", response_model=FileTaskResponse)
 def create_file_task(data: FileTaskCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    validate_pattern(data.naming_pattern)
     task = FileTask(title=data.title, description=data.description,
                     deadline=datetime.fromisoformat(data.deadline), author_id=current_user.id,
                     naming_pattern=data.naming_pattern or "{name}_{sid}",
@@ -98,6 +103,7 @@ def update_file_task(task_id: int, data: FileTaskCreate, db: Session = Depends(g
     """编辑文件任务"""
     task = db.query(FileTask).filter(FileTask.id == task_id).first()
     if not task: raise HTTPException(status_code=404, detail="任务不存在")
+    validate_pattern(data.naming_pattern)
     task.title = data.title
     task.description = data.description
     task.deadline = datetime.fromisoformat(data.deadline)
@@ -116,66 +122,50 @@ def update_file_task(task_id: int, data: FileTaskCreate, db: Session = Depends(g
 
 
 @router.post("/api/file-tasks/{task_id}/submit")
-async def submit_files(task_id: int, files: list[UploadFile] = File(...), db: Session = Depends(get_db),
+def submit_files(task_id: int, files: list[UploadFile] = File(...), db: Session = Depends(get_db),
                        current_user: User = Depends(get_current_user)):
     """提交文件（支持多文件同时上传，重新提交会覆盖旧文件）"""
-    task = db.query(FileTask).filter(FileTask.id == task_id).first()
-    if not task: raise HTTPException(status_code=404, detail="任务不存在")
-
-    # 截止时间检查
-    if task.deadline and beijing_now() > task.deadline:
-        raise HTTPException(status_code=400, detail="已过截止时间，不可再提交文件")
-
-    # 删除该学生此任务的旧文件（覆盖模式）
-    old_subs = db.query(FileSubmission).filter(
-        FileSubmission.task_id == task_id,
-        FileSubmission.student_id == current_user.id
-    ).all()
-    for old in old_subs:
-        old_path = safe_upload_path(old.file_path)
-        if os.path.exists(old_path):
+    with _submission_lock:
+        task = db.get(FileTask,task_id)
+        if not task:
+            raise HTTPException(404,"任务不存在")
+        if task.deadline and beijing_now() > task.deadline:
+            raise HTTPException(400,"已过截止时间，不可再提交文件")
+        if not 1 <= len(files) <= 20:
+            raise HTTPException(422,"每次提交 1 至 20 个文件")
+        for file in files:
+            if os.path.splitext(file.filename or "")[1].lower() not in ALLOWED_DOC_EXTENSIONS:
+                raise HTTPException(400,"存在不支持的文件格式，请检查后重新上传")
+        old_subs = db.query(FileSubmission).filter_by(task_id=task_id,student_id=current_user.id).all()
+        created, submitted = [], []
+        try:
+            for file in files:
+                ext = os.path.splitext(file.filename)[1].lower()
+                stored = f"task_{task_id}_{current_user.id}_{uuid.uuid4().hex}{ext}"
+                path = safe_upload_path(stored)
+                save_upload(file,path)
+                created.append(path)
+                sub = FileSubmission(task_id=task_id,student_id=current_user.id,file_path=stored,original_name=safe_component(file.filename,max_bytes=190))
+                db.add(sub)
+                submitted.append(sub)
+            for old in old_subs:
+                db.delete(old)
+            db.commit()
+        except BaseException:
+            db.rollback()
+            for path in created:
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+            raise
+        # Delete previous files only after the new submission is durable.
+        for old in old_subs:
             try:
-                os.remove(old_path)
-            except Exception:
+                os.remove(safe_upload_path(old.file_path))
+            except OSError:
                 pass
-        db.delete(old)
-
-    pattern = task.naming_pattern or "{name}_{sid}"
-
-    submitted = []
-    for file in files:
-        ext = os.path.splitext(file.filename)[1].lower()
-        if ext not in ALLOWED_DOC_EXTENSIONS:
-            raise HTTPException(status_code=400, detail=f"不支持的文件格式: {file.filename}")
-
-        base_name = compute_submit_filename(
-            pattern, current_user, task, task.group_project_id, file.filename, db
-        )
-
-        # 同名文件加序号避免覆盖
-        filename = f"{base_name}{ext}"
-        counter = 1
-        while os.path.exists(os.path.join(UPLOAD_DIR, filename)):
-            filename = f"{base_name}_{counter}{ext}"
-            counter += 1
-
-        file_path = safe_upload_path(filename)
-        await save_upload_async(file, file_path)
-
-        sub = FileSubmission(task_id=task_id, student_id=current_user.id,
-                             file_path=filename, original_name=file.filename)
-        db.add(sub)
-        submitted.append({"id": None, "filename": filename, "original_name": file.filename})
-    db.commit()
-
-    # 回填 id
-    for item in submitted:
-        s = db.query(FileSubmission).filter(FileSubmission.file_path == item["filename"],
-                                             FileSubmission.task_id == task_id,
-                                             FileSubmission.student_id == current_user.id).first()
-        if s: item["id"] = s.id
-
-    return {"message": f"成功提交 {len(submitted)} 个文件", "files": submitted}
+        return {"message":f"成功提交 {len(submitted)} 个文件", "files":[{"id":x.id,"filename":x.file_path,"original_name":x.original_name} for x in submitted]}
 
 
 
@@ -213,7 +203,9 @@ def download_submission(submission_id: int, db: Session = Depends(get_db), curre
     ext = os.path.splitext(sub.file_path)[1]
     if task and student:
         pattern = task.naming_pattern or "{name}_{sid}"
-        new_base = compute_submit_filename(pattern, student, task, task.group_project_id, sub.original_name, db)
+        seq = db.query(FileSubmission).filter(FileSubmission.task_id == sub.task_id,
+            FileSubmission.student_id == sub.student_id, FileSubmission.id <= sub.id).count()
+        new_base = compute_submit_filename(pattern, student, task, task.group_project_id, sub.original_name, db, seq=seq)
         download_name = f"{new_base}{ext}"
     else:
         download_name = sub.original_name or sub.file_path
@@ -300,10 +292,12 @@ def _collect_zip_items(db: Session, task=None, structure: str = "flat"):
         by_task.setdefault(submission.task_id, []).append(submission)
     per_student = structure == "per_student"
     for t in tasks:
+        sequences = {}
         pattern = t.naming_pattern or "{name}_{sid}"
-        task_folder = t.title.replace("/", "_").replace("\\", "_")
+        task_folder = f"{t.id}_" + safe_component(t.title)
         subs = by_task.get(t.id, [])
         for s in subs:
+            sequences[s.student_id] = sequences.get(s.student_id,0)+1
             fpath = safe_upload_path(s.file_path)
             if not os.path.isfile(fpath):
                 continue
@@ -320,8 +314,9 @@ def _collect_zip_items(db: Session, task=None, structure: str = "flat"):
                             group_label = json.loads(project.group_names).get(str(assignment.group_number), group_label)
                         except (json.JSONDecodeError, TypeError):
                             pass
-                    effective_pattern = pattern.replace("{group}", group_label)
-                new_base = compute_submit_filename(effective_pattern, student, t, None, s.original_name, db)
+                    # Resolve values only inside format_map so braces in a group name stay literal.
+                    effective_pattern = pattern
+                new_base = compute_submit_filename(effective_pattern, student, t, None, s.original_name, db, seq=sequences[s.student_id])
             else:
                 new_base = os.path.splitext(s.file_path)[0].split("/")[-1]
             parts = []
@@ -330,7 +325,7 @@ def _collect_zip_items(db: Session, task=None, structure: str = "flat"):
             if per_student and student:
                 safe_name = student.real_name or student.username
                 safe_sid = student.student_id or str(student.id)
-                student_folder = "".join(c for c in f"{safe_name}_{safe_sid}" if c not in r'<>:"/\|?*')
+                student_folder = safe_component(f"{safe_sid}_{safe_name}")
                 parts.append(student_folder)
             parts.append(f"{new_base}{ext}")
             items.append({"path": fpath, "arcname": "/".join(parts), "size": os.path.getsize(fpath)})
@@ -403,8 +398,10 @@ def download_task_zip(task_id: int, structure: str = "flat", batch: int | None =
         name = f"{safe_title}_提交文件.zip"
     try:
         return _build_zip_response(selected, name)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"打包下载失败: {str(e)}")
+    except HTTPException:
+        raise
+    except OSError:
+        raise HTTPException(status_code=500, detail="打包失败，请检查磁盘空间或联系管理员")
 
 
 
@@ -427,12 +424,12 @@ def download_student_zip(task_id: int, student_id: int, db: Session = Depends(ge
         raise HTTPException(status_code=404, detail="该学生暂无提交文件")
     pattern = task.naming_pattern or "{name}_{sid}"
     items = []
-    for s in subs:
+    for seq, s in enumerate(subs, 1):
         fpath = safe_upload_path(s.file_path)
         if not os.path.isfile(fpath):
             continue
         ext = os.path.splitext(s.file_path)[1]
-        new_base = compute_submit_filename(pattern, student, task, task.group_project_id, s.original_name, db)
+        new_base = compute_submit_filename(pattern, student, task, task.group_project_id, s.original_name, db, seq=seq)
         items.append({"path": fpath, "arcname": f"{new_base}{ext}", "size": os.path.getsize(fpath)})
     if not items:
         raise HTTPException(status_code=404, detail="文件不存在")
@@ -441,8 +438,10 @@ def download_student_zip(task_id: int, student_id: int, db: Session = Depends(ge
     safe_student = "".join(c for c in f"{safe_name}_{safe_sid}" if c not in r'<>:"/\|?*')
     try:
         return _build_zip_response(items, f"{safe_student}_提交文件.zip")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"打包下载失败: {str(e)}")
+    except HTTPException:
+        raise
+    except OSError:
+        raise HTTPException(status_code=500, detail="打包失败，请检查磁盘空间或联系管理员")
 
 
 
@@ -482,6 +481,8 @@ def download_all_tasks_zip(structure: str = "flat", batch: int | None = None,
         name = "全部任务提交文件.zip"
     try:
         return _build_zip_response(selected, name)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"打包下载失败: {str(e)}")
+    except HTTPException:
+        raise
+    except OSError:
+        raise HTTPException(status_code=500, detail="打包失败，请检查磁盘空间或联系管理员")
 

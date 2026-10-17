@@ -1,3 +1,6 @@
+from services.richtext import clean_html
+from services.surveys import options_list, validate_answers, submission_lock
+import json
 from auth import get_current_user
 from auth import require_admin
 from config import ZIP_BATCH_MAX_SIZE, MAX_IMPORT_BYTES
@@ -42,10 +45,10 @@ def list_surveys(db: Session = Depends(get_db), current_user: User = Depends(get
     for s in surveys:
         response_count = db.query(SurveyResponse).join(SurveyQuestion).filter(
             SurveyQuestion.survey_id == s.id
-        ).distinct(SurveyResponse.student_id).count()
+        ).with_entities(func.count(func.distinct(SurveyResponse.student_id))).scalar()
         # 当前用户是否已提交
         user_submitted = False
-        if current_user.role != 'admin' and not s.allow_multiple:
+        if True:
             submitted = db.query(SurveyResponse).join(SurveyQuestion).filter(
                 SurveyQuestion.survey_id == s.id,
                 SurveyResponse.student_id == current_user.id
@@ -60,7 +63,7 @@ def list_surveys(db: Session = Depends(get_db), current_user: User = Depends(get
                        "created_at": s.created_at, "author_id": s.author_id,
                        "author_name": s.author.real_name if s.author else "",
                        "author_qq": s.author.qq_number if s.author else "",
-                       "response_count": response_count, "user_submitted": user_submitted,
+                       "response_count": response_count, "user_submitted": user_submitted, "has_responses": response_count > 0,
                        "questions": questions})
     return result
 
@@ -103,7 +106,8 @@ def get_survey(survey_id: int, db: Session = Depends(get_db), current_user: User
             "deadline": survey.deadline, "is_anonymous": survey.is_anonymous,
             "show_results": survey.show_results, "allow_multiple": survey.allow_multiple,
             "created_at": survey.created_at, "author_id": survey.author_id,
-            "author_name": survey.author.real_name if survey.author else "", "questions": questions}
+            "author_name": survey.author.real_name if survey.author else "", "questions": questions,
+            "has_responses": db.query(SurveyResponse).join(SurveyQuestion).filter(SurveyQuestion.survey_id == survey_id).first() is not None}
 
 
 
@@ -112,7 +116,16 @@ def update_survey(survey_id: int, data: SurveyCreate, db: Session = Depends(get_
     survey = db.query(Survey).filter(Survey.id == survey_id).first()
     if not survey:
         raise HTTPException(status_code=404, detail="问卷不存在")
-    # 只更新元数据，不修改题目（避免丢失已有回答数据）
+    has_responses = db.query(SurveyResponse).join(SurveyQuestion).filter(SurveyQuestion.survey_id == survey_id).first() is not None
+    old = [(q.question_text,clean_html(q.description),q.question_type,options_list(q.options)) for q in survey.questions]
+    new = [(q.question_text,clean_html(q.description),q.question_type,options_list(q.options)) for q in data.questions]
+    if has_responses and (old != new or survey.is_anonymous != data.is_anonymous):
+        raise HTTPException(409, "问卷已有答卷，题目与匿名设置已锁定；请复制问卷后修改")
+    if not has_responses:
+        survey.questions.clear()
+        db.flush()
+        for q in data.questions:
+            survey.questions.append(SurveyQuestion(question_text=q.question_text,description=q.description,question_type=q.question_type,options=q.options))
     survey.title = data.title
     survey.description = data.description or ""
     survey.deadline = datetime.strptime(data.deadline, "%Y-%m-%d %H:%M:%S") if data.deadline else None
@@ -135,24 +148,25 @@ def update_survey(survey_id: int, data: SurveyCreate, db: Session = Depends(get_
 @router.post("/api/surveys/{survey_id}/submit")
 def submit_survey(survey_id: int, data: SurveySubmitRequest, db: Session = Depends(get_db),
                   current_user: User = Depends(get_current_user)):
-    survey = db.query(Survey).filter(Survey.id == survey_id).first()
-    if not survey: raise HTTPException(status_code=404, detail="问卷不存在")
-    # 截止时间检查
-    if survey.deadline and beijing_now() > survey.deadline:
-        raise HTTPException(status_code=400, detail="已过截止时间，不可再提交问卷")
-    # 重复提交检查
-    if not survey.allow_multiple:
-        existing = db.query(SurveyResponse).join(SurveyQuestion).filter(
-            SurveyQuestion.survey_id == survey_id,
-            SurveyResponse.student_id == current_user.id
-        ).first()
-        if existing:
-            raise HTTPException(status_code=400, detail="您已提交过该问卷，不允许重复提交")
-    for ans in data.answers:
-        resp = SurveyResponse(question_id=ans.question_id, student_id=current_user.id, answer_text=ans.answer_text)
-        db.add(resp)
-    db.commit()
-    return {"message": "提交成功"}
+    # One worker: serialize check + replace + commit to avoid double-click races.
+    with submission_lock:
+        survey = db.query(Survey).filter(Survey.id == survey_id).first()
+        if not survey:
+            raise HTTPException(404,"问卷不存在")
+        if survey.deadline and beijing_now() > survey.deadline:
+            raise HTTPException(400,"已过截止时间，不可再提交问卷")
+        validated = validate_answers(survey.questions, data.answers)
+        question_ids = [q.id for q in survey.questions]
+        existing = db.query(SurveyResponse).filter(SurveyResponse.question_id.in_(question_ids),SurveyResponse.student_id == current_user.id)
+        if existing.first() and not survey.allow_multiple:
+            raise HTTPException(409,"您已提交过该问卷，不允许重复提交")
+        # Repeated submissions replace the previous answer set atomically.
+        existing.delete(synchronize_session=False)
+        timestamp = beijing_now()
+        for question_id,value in validated:
+            db.add(SurveyResponse(question_id=question_id,student_id=current_user.id,answer_text=value,created_at=timestamp))
+        db.commit()
+    return {"message":"提交成功"}
 
 
 
@@ -165,7 +179,7 @@ def survey_results(survey_id: int, db: Session = Depends(get_db), current_user: 
     submissions = {}  # student_id -> {student_name, student_id, answers: {question_id: answer}, submitted_at}
     all_responses = db.query(SurveyResponse).join(SurveyQuestion).filter(
         SurveyQuestion.survey_id == survey_id
-    ).all()
+    ).order_by(SurveyResponse.created_at, SurveyResponse.id).all()
     for r in all_responses:
         if r.student_id not in submissions:
             submissions[r.student_id] = {
@@ -194,7 +208,7 @@ def survey_results(survey_id: int, db: Session = Depends(get_db), current_user: 
             })
             # 统计选项票数（单选/多选题）
             if q.question_type in ('single', 'multiple') and ans:
-                for opt in str(ans).split(','):
+                for opt in ([ans] if q.question_type == "single" else options_list(ans)):
                     opt = opt.strip()
                     if opt:
                         vote_counts[opt] = vote_counts.get(opt, 0) + 1
@@ -226,7 +240,7 @@ def student_survey_results(survey_id: int, db: Session = Depends(get_db), curren
     submissions = {}
     all_responses = db.query(SurveyResponse).join(SurveyQuestion).filter(
         SurveyQuestion.survey_id == survey_id
-    ).all()
+    ).order_by(SurveyResponse.created_at, SurveyResponse.id).all()
     for r in all_responses:
         if r.student_id not in submissions:
             submissions[r.student_id] = {
@@ -254,7 +268,7 @@ def student_survey_results(survey_id: int, db: Session = Depends(get_db), curren
                 "submitted_at": sub["submitted_at"].isoformat() if sub["submitted_at"] else "",
             })
             if q.question_type in ('single', 'multiple') and ans:
-                for opt in str(ans).split(','):
+                for opt in ([ans] if q.question_type == "single" else options_list(ans)):
                     opt = opt.strip()
                     if opt:
                         vote_counts[opt] = vote_counts.get(opt, 0) + 1
@@ -262,7 +276,7 @@ def student_survey_results(survey_id: int, db: Session = Depends(get_db), curren
             id=q.id, question_text=q.question_text,
             description=q.description or "",
             question_type=q.question_type, options=q.options or "",
-            answers=answers, vote_counts=vote_counts, details=details
+            answers=[], vote_counts=vote_counts, details=[]
         ))
 
     return SurveyResultListResponse(
@@ -315,6 +329,8 @@ def export_survey_results(survey_id: int, sort_by: str = Query("student_id"),
     if not survey:
         raise HTTPException(status_code=404, detail="问卷不存在")
 
+    if survey.is_anonymous and include_all:
+        raise HTTPException(400, "匿名问卷不可导出实名未填写名单")
     questions = survey.questions
     question_ids = [q.id for q in questions]
 
@@ -322,7 +338,7 @@ def export_survey_results(survey_id: int, sort_by: str = Query("student_id"),
     submissions = {}  # student_id -> {answers, submitted_at}
     all_responses = db.query(SurveyResponse).filter(
         SurveyResponse.question_id.in_(question_ids)
-    ).all()
+    ).order_by(SurveyResponse.created_at, SurveyResponse.id).all()
     for r in all_responses:
         if r.student_id not in submissions:
             submissions[r.student_id] = {"answers": {}, "submitted_at": r.created_at}
@@ -384,12 +400,12 @@ def export_survey_results(survey_id: int, sort_by: str = Query("student_id"),
 
     # 数据行
     for row in rows_data:
-        line = [row["student_name"], row["student_id"]]
+        line = ["匿名用户", ""] if survey.is_anonymous else [row["student_name"], row["student_id"]]
         for qid in question_ids:
             line.append(row["answers"].get(qid, ""))
         if include_all:
             line.append("已提交" if row["submitted"] else "未提交")
-        ws.append(line)
+        ws.append([("\'" + v) if isinstance(v,str) and v.startswith(("=","+","-","@")) else v for v in line])
 
     # 调整列宽
     ws.column_dimensions['A'].width = 12

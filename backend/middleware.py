@@ -20,7 +20,7 @@ class ResourceLimitsMiddleware:
         upload = scope["method"] in {"POST", "PUT", "PATCH"} and b"multipart/form-data" in headers.get(b"content-type", b"").lower()
         path = scope.get("path", "")
         download = scope["method"] in {"GET", "HEAD"} and (
-            path.startswith("/static/") or "download-zip" in path or path.endswith("/download")
+            path.startswith("/static/") or "download" in path or path.endswith("/export") or "/media/" in path
         )
 
         async def reject(code, detail):
@@ -32,7 +32,8 @@ class ResourceLimitsMiddleware:
                 raise ValueError
         except ValueError:
             return await reject(400, "无效的 Content-Length")
-        if length > self.max_body:
+        body_limit = self.max_body if upload else min(self.max_body, 1024*1024)
+        if length > body_limit:
             return await reject(413, f"请求总大小超过 {self.max_body // 1024 // 1024}MB 限制")
         if (upload and self.uploads >= self.upload_limit) or (download and self.downloads >= self.download_limit):
             return await reject(503, "文件处理繁忙，请稍后重试")
@@ -49,7 +50,7 @@ class ResourceLimitsMiddleware:
             message = await receive()
             if message["type"] == "http.request":
                 received += len(message.get("body", b""))
-                if received > self.max_body:
+                if received > body_limit:
                     overflow = True
                     # Starlette closes partial multipart spool files on this exception.
                     raise MultiPartException("请求体过大")

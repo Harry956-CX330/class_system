@@ -1,0 +1,51 @@
+name: Verify version 2
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r backend/requirements-dev.txt
+      - run: python -m unittest discover -s backend/tests -v
+      - run: pip-audit -r backend/requirements.txt --progress-spinner off
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - run: npm audit --omit=dev --registry=https://registry.npmjs.org
+      - run: npm run build
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r backend/requirements-dev.txt
+        working-directory: .
+      - run: npx playwright install --with-deps msedge
+      - name: Responsive browser regression
+        run: |
+          python ../backend/tests/preview_app.py > /tmp/class-preview.log 2>&1 &
+          PREVIEW_PID=$!
+          trap 'kill "$PREVIEW_PID"' EXIT
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8765/api/health > /dev/null; then break; fi
+            sleep 1
+          done
+          npm run test:e2e
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --tag class-system:verify .

@@ -12,6 +12,7 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    if (/\/(notify|remind|send-email|test-email|resend|submit)$/.test(config.url || '')) config.timeout = 0
     // 管理端视图 → 后端返回全班数据
     const currentView = localStorage.getItem('currentView')
     if (currentView === 'admin') {

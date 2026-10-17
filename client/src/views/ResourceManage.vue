@@ -187,7 +187,7 @@
           <el-input v-model="categoryForm.name" placeholder="例如：期末复习资料" size="large" />
         </el-form-item>
         <el-form-item label="分类描述 (选填)">
-          <el-input v-model="categoryForm.description" type="textarea" :rows="3" placeholder="简单描述该分类的用途..." />
+          <RichEditor v-model="categoryForm.description" />
         </el-form-item>
       </el-form>
       <template #footer>

@@ -23,7 +23,7 @@
           <template #default="{ row }">
             <div class="expand-preview">
               <div class="preview-label"><el-icon><ChatLineSquare /></el-icon> 内容速览</div>
-              <div class="preview-content">{{ row.content }}</div>
+              <RichContent class="preview-content" :content="row.content" />
             </div>
           </template>
         </el-table-column>
@@ -81,7 +81,7 @@
               </div>
               <span class="time-text">{{ formatTime(row.created_at) }}</span>
             </div>
-            <div class="preview-content-mobile">{{ row.content }}</div>
+            <RichContent class="preview-content-mobile" :content="row.content" />
           </div>
           <div class="card-footer" :class="{'admin-footer': authStore.isAdmin}">
             <el-button size="small" type="primary" plain :icon="View" @click="openViewDialog(row)">详细阅读</el-button>
@@ -111,13 +111,7 @@
             <el-input v-model="noticeForm.title" placeholder="请输入通知标题，建议言简意赅" />
           </el-form-item>
           <el-form-item label="公告正文">
-            <el-input 
-              v-model="noticeForm.content" 
-              type="textarea" 
-              :rows="isMobile ? 12 : 8" 
-              placeholder="请输入通知详细内容，支持段落换行..." 
-              class="custom-textarea"
-            />
+            <RichEditor v-model="noticeForm.content" />
           </el-form-item>
           <el-form-item v-if="authStore.isAdmin">
             <el-checkbox v-model="noticeForm.is_urgent" class="urgent-checkbox">
@@ -153,7 +147,7 @@
         
         <el-divider border-style="dashed" class="article-divider" />
         
-        <div class="article-content">{{ viewNotice.content }}</div>
+        <RichContent class="article-content" :content="viewNotice.content" />
       </div>
       
       <template #footer>

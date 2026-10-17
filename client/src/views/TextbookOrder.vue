@@ -117,7 +117,7 @@
             <span :class="{ 'price-discount': row.discounted_price < row.original_price }">¥{{ row.discounted_price }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="notes" label="备注" min-width="100" show-overflow-tooltip />
+        <el-table-column prop="notes" label="备注" min-width="100"><template #default="{ row }"><RichContent :content="row.notes" /></template></el-table-column>
         <el-table-column v-if="!authStore.canViewAllData" label="操作" width="85" align="center" fixed="right">
           <template #default="{ row }">
             <el-button
@@ -189,7 +189,7 @@
                 <span v-if="row.discounted_price < row.original_price" class="price-crossed">¥{{ row.original_price }}</span>
               </span>
             </div>
-            <div v-if="row.notes" class="info-row"><span class="label">备注：</span><span class="value notes-text">{{ row.notes }}</span></div>
+            <div v-if="row.notes" class="info-row"><span class="label">备注：</span><RichContent class="value notes-text" :content="row.notes" /></div>
           </div>
           <div class="card-footer" v-if="!authStore.canViewAllData">
             <el-button
@@ -498,7 +498,7 @@
           </el-col>
         </el-row>
         <el-form-item label="备注">
-          <el-input v-model="form.notes" type="textarea" :rows="2" placeholder="选填" />
+          <RichEditor v-model="form.notes" />
         </el-form-item>
       </el-form>
       <template #footer>

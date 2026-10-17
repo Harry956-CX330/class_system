@@ -11,9 +11,14 @@
         </el-button>
       </div>
 
+      <div class="collection-toolbar">
+        <el-input v-model="search" placeholder="搜索问卷标题" clearable aria-label="搜索问卷" />
+        <el-radio-group v-model="statusFilter"><el-radio-button value="all">全部</el-radio-button><el-radio-button value="todo">待填写</el-radio-button><el-radio-button value="done">已填写</el-radio-button></el-radio-group>
+        <span>{{ filteredSurveys.length }} 份问卷</span>
+      </div>
       <el-table 
         v-if="!isMobile"
-        :data="surveys" 
+        :data="filteredSurveys"
         v-loading="loading" 
         style="width: 100%"
         :header-cell-style="{ background: '#F7F8FA', color: '#4E5969', fontWeight: '500' }"
@@ -27,7 +32,7 @@
         </el-table-column>
         <el-table-column prop="description" label="问卷描述" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
-            <span class="survey-desc">{{ row.description || '暂无描述' }}</span>
+            <RichContent class="survey-desc" :content="row.description || '暂无描述'" />
           </template>
         </el-table-column>
         <el-table-column label="截止时间" min-width="160">
@@ -67,8 +72,8 @@
               <el-button v-if="authStore.canViewAllData" size="small" type="warning" link :icon="ChatDotSquare" :loading="qqNotifyMap[row.id]" @click="handleQQNotify(row)">
                 QQ通知
               </el-button>
-              <el-button v-if="!authStore.canViewAllData" size="small" type="primary" link :icon="EditPen" :disabled="isExpired(row.deadline) || row.user_submitted" @click="openFillDialog(row)">
-                {{ row.user_submitted ? '已提交' : '填写问卷' }}
+              <el-button v-if="!authStore.canViewAllData" size="small" type="primary" link :icon="EditPen" :disabled="isExpired(row.deadline) || (row.user_submitted && !row.allow_multiple)" @click="openFillDialog(row)">
+                {{ row.user_submitted ? (row.allow_multiple ? '再次填写' : '已提交') : '填写问卷' }}
               </el-button>
               <el-button v-if="!authStore.canViewAllData && row.show_results" size="small" type="success" link :icon="DataAnalysis" @click="openStudentResult(row)">
                 查看结果
@@ -82,7 +87,7 @@
       </el-table>
 
       <div v-else class="mobile-list" v-loading="loading">
-        <el-card v-for="row in surveys" :key="row.id" class="mobile-survey-card" shadow="sm">
+        <el-card v-for="row in filteredSurveys" :key="row.id" class="mobile-survey-card" shadow="sm">
           <div class="card-header">
             <span class="survey-title">{{ row.title }}</span>
             <div class="card-tags">
@@ -93,7 +98,7 @@
             </div>
           </div>
           <div class="card-body">
-            <p class="survey-desc">{{ row.description || '暂无描述' }}</p>
+            <RichContent class="survey-desc" :content="row.description || '暂无描述'" />
             <div class="meta-info">
               <div class="time-text">发布：{{ new Date(row.created_at).toLocaleString('zh-CN', { hour12: false }) }}</div>
               <div class="time-text" style="margin-top: 2px;">
@@ -114,8 +119,8 @@
               <el-button size="small" type="danger" plain :icon="Delete" @click="handleDelete(row)">删除</el-button>
             </template>
             <template v-else>
-              <el-button v-if="!authStore.canViewAllData" size="small" type="primary" plain :icon="EditPen" :disabled="isExpired(row.deadline) || row.user_submitted" @click="openFillDialog(row)">
-                {{ row.user_submitted ? '已提交' : '填写' }}
+              <el-button v-if="!authStore.canViewAllData" size="small" type="primary" plain :icon="EditPen" :disabled="isExpired(row.deadline) || (row.user_submitted && !row.allow_multiple)" @click="openFillDialog(row)">
+                {{ row.user_submitted ? (row.allow_multiple ? '再次填写' : '已提交') : '填写' }}
               </el-button>
             <el-button v-if="!authStore.canViewAllData && row.show_results" size="small" type="success" plain :icon="DataAnalysis" @click="openStudentResult(row)">结果</el-button>
             </template>
@@ -134,13 +139,14 @@
       destroy-on-close
     >
       <template v-if="currentSurvey">
+        <div class="survey-progress" aria-live="polite"><span>已完成 {{ completedCount }} / {{ currentSurvey.questions.length }} 题 · 每题均需填写</span><el-progress :percentage="Math.round(completedCount / Math.max(1,currentSurvey.questions.length) * 100)" :show-text="false" /></div>
         <div class="dialog-scroll-body">
           <div class="survey-fill-header">
-            <p class="survey-fill-desc">{{ currentSurvey.description || '感谢您参与本次问卷调查。' }}</p>
+            <RichContent class="survey-fill-desc" :content="currentSurvey.description || '感谢您参与本次问卷调查。'" />
             <el-tag v-if="currentSurvey.is_anonymous" size="small" type="info" style="margin-top: 8px;">本问卷为匿名提交</el-tag>
           </div>
           <div class="survey-questions-wrapper">
-            <div v-for="(q, index) in currentSurvey.questions" :key="index" class="fill-question-item">
+            <div v-for="(q, index) in currentSurvey.questions" :key="index" class="fill-question-item" :id="`question-${index}`">
               <div class="fq-title">
                 <span class="fq-index">{{ index + 1 }}.</span>
                 <span class="fq-text">{{ q.question_text }}</span>
@@ -148,7 +154,7 @@
                   {{ getTypeLabel(q.question_type) }}
                 </el-tag>
               </div>
-              <div v-if="q.description" class="fq-desc">{{ q.description }}</div>
+              <RichContent v-if="q.description" class="fq-desc" :content="q.description" />
 
               <div class="fq-answer-area">
                 <el-input 
@@ -200,7 +206,7 @@
               <span class="rq-text">{{ q.question_text }}</span>
               <el-tag size="small" type="info">{{ getTypeLabel(q.question_type) }}</el-tag>
             </div>
-            <div v-if="q.description" class="rq-desc">{{ q.description }}</div>
+            <RichContent v-if="q.description" class="rq-desc" :content="q.description" />
             <!-- 选项票数统计 -->
             <div v-if="hasVoteCounts(q)" class="vote-summary">
               <div class="vote-title">票数统计</div>
@@ -372,15 +378,19 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete, EditPen, DataAnalysis, Message, Timer, ChatDotSquare, Download } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
 import api from '../api'
+import { optionsList } from '../utils/richtext'
 
 const authStore = useAuthStore()
 const surveys = ref([])
 const loading = ref(false)
+const search = ref(''), statusFilter = ref('all')
+const filteredSurveys = computed(() => surveys.value.filter(s => s.title.includes(search.value.trim()) && (statusFilter.value === 'all' || (statusFilter.value === 'done' ? s.user_submitted : !s.user_submitted && !isExpired(s.deadline)))))
+const completedCount = computed(() => Object.values(answers.value).filter(v => Array.isArray(v) ? v.length > 0 : String(v ?? '').trim() !== '' && v !== 0).length)
 
 // 响应式状态探测
 const isMobile = ref(false)
@@ -439,19 +449,8 @@ function isExpired(deadline) {
   return new Date() > new Date(deadline)
 }
 
-function getOptions(q) {
-  if (q.options) return q.options
-  if (q.options_str) {
-    // 兼容中英文逗号
-    return q.options_str.replace(/，/g, ',').split(',').map(s => s.trim()).filter(Boolean)
-  }
-  return []
-}
-
-function getFillOptions(q) {
-  if (q.options) return q.options.split(',').map(s => s.trim()).filter(Boolean)
-  return getOptions(q)
-}
+function getOptions(q) { return optionsList(q.options || q.options_str) }
+function getFillOptions(q) { return getOptions(q) }
 
 function getTypeLabel(type) {
   const map = { text: '简答', single: '单选', multiple: '多选', rating: '评分' }
@@ -509,21 +508,24 @@ async function loadSurveys() {
 
 async function openFillDialog(row) {
   currentSurvey.value = { ...row }
-  answers.value = {}
+  answers.value = Object.fromEntries(row.questions.map(q => [q.id, q.question_type === 'multiple' ? [] : q.question_type === 'rating' ? 0 : '']))
   fillVisible.value = true
 }
 
 async function handleSubmitFill() {
-  if (Object.keys(answers.value).length === 0) {
-    return ElMessage.warning('请至少填写一道题目')
+  if (filling.value) return
+  const missing = currentSurvey.value.questions.findIndex(q => { const a = answers.value[q.id]; return Array.isArray(a) ? !a.length : !String(a ?? '').trim() || a === 0 })
+  if (missing >= 0) {
+    document.getElementById(`question-${missing}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    return ElMessage.warning(`请完成第 ${missing + 1} 题`)
   }
 
   filling.value = true
   try {
     const payload = {
       answers: Object.entries(answers.value).map(([questionId, answer]) => ({
-        question_id: parseInt(questionId),
-        answer_text: String(answer),
+        question_id: Number(questionId),
+        answer_text: Array.isArray(answer) ? JSON.stringify(answer) : String(answer),
       })),
     }
     await api.post(`/api/surveys/${currentSurvey.value.id}/submit`, payload)

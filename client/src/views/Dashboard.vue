@@ -189,6 +189,7 @@
             {{ currentView === 'admin' ? '切换用户端' : '切换管理端' }}
           </el-button>
           
+          <InstallApp />
           <el-dropdown trigger="click" @command="handleCommand">
             <div class="user-dropdown">
               <el-avatar :size="32" style="background-color: #165DFF">
@@ -422,7 +423,7 @@
                 </el-table-column>
                 <el-table-column type="expand">
                   <template #default="{ row }">
-                    <div class="notice-content">{{ row.content }}</div>
+                    <RichContent class="notice-content" :content="row.content" />
                   </template>
                 </el-table-column>
               </el-table>
@@ -439,7 +440,7 @@
                     <span class="mn-title">{{ row.title }}</span>
                     <span class="mn-author">{{ row.author_name }}</span>
                   </div>
-                  <div class="mn-content">{{ row.content }}</div>
+                  <RichContent class="mn-content" :content="row.content" />
                 </div>
                 <el-empty v-if="!recentNotices.length" description="暂无最新通知" :image-size="60" />
               </div>
@@ -451,7 +452,8 @@
           <router-view />
         </div>
       </el-main>
-    </el-container>
+      <nav class="mobile-dock" aria-label="快捷导航"><router-link to="/dashboard">首页</router-link><router-link to="/notices">公告</router-link><router-link to="/file-tasks">文件任务</router-link><router-link to="/surveys">问卷</router-link></nav>
+  </el-container>
 
     <!-- 班委通讯录悬浮按钮 -->
     <div
@@ -507,7 +509,7 @@
       :show-close="false"
       class="urgent-notice-dialog"
     >
-      <div class="urgent-content">{{ urgentNotice.content }}</div>
+      <RichContent class="urgent-content" :content="urgentNotice.content" />
       <div class="urgent-meta">
         <span>发布人：{{ urgentNotice.author_name || '管理员' }}</span>
         <span>{{ formatUrgentTime(urgentNotice.created_at) }}</span>
@@ -537,6 +539,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
 import api from '../api'
+import InstallApp from '../components/InstallApp.vue'
 
 import { 
   DataAnalysis, Bell, Document, Medal, Stamp, FolderOpened, 
@@ -560,7 +563,7 @@ const isMobile = ref(false)
 const isSidebarOpen = ref(false)
 
 const checkDevice = () => {
-  isMobile.value = window.innerWidth <= 768
+  isMobile.value = window.innerWidth <= 1024
   if (!isMobile.value) {
     isSidebarOpen.value = true // 电脑端默认展开
   } else {

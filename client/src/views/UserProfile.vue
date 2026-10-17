@@ -121,7 +121,7 @@
       class="modern-dialog" 
       destroy-on-close
     >
-      <div class="dialog-desc">为了您的账号安全，请定期更改密码。新密码长度不能少于6位。</div>
+      <div class="dialog-desc">新密码至少 8 位，UTF-8 编码不能超过 72 字节。</div>
       <el-form 
         :model="passwordForm" 
         :label-width="isMobile ? 'auto' : '90px'" 
@@ -132,7 +132,7 @@
           <el-input v-model="passwordForm.old_password" type="password" show-password placeholder="请输入原密码" />
         </el-form-item>
         <el-form-item label="新密码" :style="{ marginTop: isMobile ? '0' : '24px' }">
-          <el-input v-model="passwordForm.new_password" type="password" show-password placeholder="请输入新密码 (至少6位)" />
+          <el-input v-model="passwordForm.new_password" type="password" show-password placeholder="请输入新密码 (至少8位)" />
         </el-form-item>
         <el-form-item label="确认密码">
           <el-input v-model="passwordForm.confirm_password" type="password" show-password placeholder="请再次输入新密码" />
@@ -236,8 +236,8 @@ function openPasswordDialog() {
 }
 
 async function handlePasswordChange() {
-  if (passwordForm.new_password.length < 6) {
-    ElMessage.error('新密码长度不能少于6位')
+  if (passwordForm.new_password.length < 8 || new TextEncoder().encode(passwordForm.new_password).length > 72) {
+    ElMessage.error('新密码至少 8 位，UTF-8 编码不能超过 72 字节')
     return
   }
   if (passwordForm.new_password !== passwordForm.confirm_password) {

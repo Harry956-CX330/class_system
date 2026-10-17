@@ -50,3 +50,11 @@ Thumbs.db
 
 # 环境变量
 .env
+
+config/
+napcat/
+client/android/
+client/ios/
+client/test-results/
+client/playwright-report/
+client/dist/

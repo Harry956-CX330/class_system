@@ -77,7 +77,7 @@
           <el-date-picker v-model="form.end_time" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" style="width:100%" />
         </el-form-item>
         <el-form-item label="描述">
-          <el-input v-model="form.description" type="textarea" :rows="3" />
+          <RichEditor v-model="form.description" />
         </el-form-item>
       </el-form>
       <template #footer>

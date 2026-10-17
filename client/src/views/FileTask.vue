@@ -32,7 +32,7 @@
         
         <el-table-column prop="description" label="任务描述" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
-            <span class="task-desc">{{ row.description || '暂无描述' }}</span>
+            <RichContent class="task-desc" :content="row.description || '暂无描述'" />
           </template>
         </el-table-column>
         
@@ -87,7 +87,7 @@
             <el-tag size="small" type="success" effect="light" round>{{ row.submission_count || 0 }} 份</el-tag>
           </div>
           <div class="card-body">
-            <p class="task-desc">{{ row.description || '暂无描述' }}</p>
+            <RichContent class="task-desc" :content="row.description || '暂无描述'" />
             <div class="meta-info">
               <span class="deadline" :class="{ 'is-expired-text': isExpired(row.deadline) }">
                 <el-icon><Timer /></el-icon> {{ formatTime(row.deadline) }}
@@ -125,7 +125,7 @@
             <span class="meta-item"><el-icon><Timer /></el-icon> 截止：{{ formatTime(detailTask.deadline) }}</span>
             <span class="meta-item"><el-icon><User /></el-icon> 发布人：{{ detailTask.author_name || '管理员' }}<template v-if="detailTask.author_qq"> (QQ:{{ detailTask.author_qq }})</template></span>
           </div>
-          <div class="detail-desc">{{ detailTask.description || '暂无详细描述' }}</div>
+          <RichContent class="detail-desc" :content="detailTask.description || '暂无详细描述'" />
         </div>
         
         <div class="submission-section">
@@ -279,7 +279,7 @@
       destroy-on-close
     >
       <template v-if="!downloadBusy">
-        <p style="color:#606266;margin-bottom:12px;">选择文件夹结构：</p>
+        <el-alert title="下载由浏览器保存，可查看进度；大文件请保持网络连接。" type="info" :closable="false" style="margin-bottom:16px" /><p style="color:#606266;margin-bottom:12px;">将所有文件打包为一个 ZIP，选择文件夹结构：</p>
         <el-radio-group v-model="downloadStructure" style="display:flex;flex-direction:column;gap:8px;">
           <el-radio value="per_student">每个人一个文件夹</el-radio>
           <el-radio value="flat">全部人一个文件夹</el-radio>
@@ -289,7 +289,7 @@
         <div style="text-align:center;">
           <el-progress :percentage="downloadPercent" :stroke-width="18" text-inside />
           <p style="color:#606266;margin-top:12px;font-size:14px;">{{ downloadStatus }}</p>
-          <p style="color:#909399;margin-top:4px;font-size:12px;">文件按批次自动下载中，请勿关闭本页</p>
+          <p style="color:#909399;margin-top:4px;font-size:12px;">正在准备下载地址…</p>
         </div>
       </template>
       <template #footer>
@@ -369,17 +369,12 @@
             type="datetime" 
             style="width: 100%"
             value-format="YYYY-MM-DD HH:mm:ss" 
-            placeholder="留空即为无期限限制" 
+            placeholder="请选择截止时间"
             :editable="false"
           />
         </el-form-item>
         <el-form-item label="任务详细描述 (选填)">
-          <el-input 
-            v-model="createForm.description" 
-            type="textarea" 
-            :rows="isMobile ? 5 : 4" 
-            placeholder="简要说明任务要求、文件格式等..." 
-          />
+          <RichEditor v-model="createForm.description" />
         </el-form-item>
         <el-form-item label="关联小组项目">
           <el-select v-model="createForm.group_project_id" placeholder="可选：关联小组作业" clearable style="width: 100%"
@@ -428,6 +423,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, View, Upload, UploadFilled, Delete, Timer, User, Download, Edit, Message, Document, ArrowRight, ChatDotSquare } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
 import api from '../api'
+import { browserDownload } from '../utils/download'
 
 const authStore = useAuthStore()
 const isMobile = ref(window.innerWidth < 768)
@@ -438,6 +434,7 @@ const loading = ref(false)
 
 // 创建/编辑
 const createVisible = ref(false)
+const creating = ref(false)
 const editingTask = ref(null)
 const createForm = reactive({
   title: '',
@@ -452,6 +449,8 @@ const namingPreset = ref('name_sid')
 const namingPresets = computed(() => {
   const presets = [
     { value: 'name_sid', label: '姓名 + 学号', pattern: '{name}_{sid}' },
+    { value: 'name_orig', label: '姓名 + 原文件名（多文件推荐）', pattern: '{name}_{sid}_{orig}' },
+    { value: 'task_seq', label: '任务 + 姓名 + 序号', pattern: '{task}_{name}_{seq}' },
     { value: 'sid_name', label: '学号 + 姓名', pattern: '{sid}_{name}' },
     { value: 'sid3_name', label: '学号后3位 + 姓名', pattern: '{sid3}_{name}' },
     { value: 'sid2_name', label: '学号后2位 + 姓名', pattern: '{sid2}_{name}' },
@@ -459,7 +458,7 @@ const namingPresets = computed(() => {
   if (createForm.group_project_id) {
     const gp = groupProjects.value.find(g => g.id === createForm.group_project_id)
     const gpName = gp ? gp.name : '未知小组'
-    presets.push({ value: 'group_leader', label: '小组名 + 组长姓名', pattern: `{group}_${gpName}_组长` })
+    presets.push({ value: 'group_leader', label: '小组名 + 组长姓名', pattern: '{group}_{leader}_{orig}' })
     presets.push({ value: 'group_name', label: '小组名 + 姓名', pattern: '{group}_{name}' })
   }
   presets.push({ value: 'custom', label: '自定义', pattern: '' })
@@ -492,9 +491,13 @@ const placeholders = computed(() => {
     { key: '{sid}', label: '完整学号' },
     { key: '{sid2}', label: '学号后2位' },
     { key: '{sid3}', label: '学号后3位' },
+    { key: '{task}', label: '任务标题' },
+    { key: '{orig}', label: '原文件名（不含扩展名）' },
+    { key: '{seq}', label: '文件序号' },
+    { key: '{date}', label: '任务发布日期' },
   ]
   if (createForm.group_project_id) {
-    list.push({ key: '{group}', label: '小组名（优先自定义组名）' })
+    list.push({ key: '{group}', label: '小组名（优先自定义组名）' }, { key: '{leader}', label: '组长姓名' })
   }
   return list
 })
@@ -513,12 +516,8 @@ function insertPlaceholder(key) {
 const previewName = computed(() => {
   const p = createForm.naming_pattern
   if (!p) return ''
-  return p
-    .replace('{name}', '张三')
-    .replace('{sid}', '20240001')
-    .replace('{sid2}', '01')
-    .replace('{sid3}', '001')
-    .replace('{group}', '第1组')
+  const values = { name: '张三', sid: '20240001', sid2: '01', sid3: '001', group: '第1组', leader: '李四', task: createForm.title || '课程作业', orig: '实验报告', seq: '01', date: '20261018' }
+  return p.replace(/\{([^}]+)\}/g, (match,key) => values[key] || match)
 })
 
 // 小组项目列表
@@ -625,7 +624,7 @@ function openEditDialog(task) {
   createForm.title = task.title
   createForm.description = task.description
   createForm.naming_pattern = task.naming_pattern
-  createForm.deadline = task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : ''
+  createForm.deadline = task.deadline ? task.deadline.replace('T', ' ').slice(0, 19) : ''
   createForm.group_project_id = task.group_project_id || null
   // 精确匹配预设 pattern，不匹配则用自定义模式
   const pattern = task.naming_pattern || ''
@@ -636,9 +635,12 @@ function openEditDialog(task) {
 
 async function handleCreate() {
   if (!createForm.title) return ElMessage.warning('请输入任务标题')
+  if (!createForm.deadline) return ElMessage.warning('请选择截止时间')
+  if (creating.value) return
   const payload = { ...createForm }
-  if (payload.deadline) payload.deadline = payload.deadline.replace('T', ' ') + ':00'
-  else delete payload.deadline
+  payload.deadline = payload.deadline.replace('T', ' ')
+  if (payload.deadline.length === 16) payload.deadline += ':00'
+  creating.value = true
   try {
     if (editingTask.value) {
       await api.put(`/api/file-tasks/${editingTask.value.id}`, payload)
@@ -651,7 +653,7 @@ async function handleCreate() {
     loadTasks()
   } catch (err) {
     ElMessage.error(err.response?.data?.detail || '操作失败')
-  }
+  } finally { creating.value = false }
 }
 
 async function handleDelete(task) {
@@ -682,7 +684,7 @@ async function handleSubmitFile() {
   for (const f of selectedFiles.value) { formData.append('files', f) }
   try {
     const res = await api.post(`/api/file-tasks/${submitTask.value.id}/submit`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 0,
       onUploadProgress(progressEvent) {
         if (progressEvent.total) {
           uploadPercent.value = Math.round((progressEvent.loaded / progressEvent.total) * 100)
@@ -782,52 +784,17 @@ function openDownloadAllZip() {
 
 async function startBatchDownload() {
   const scope = downloadScope.value
-  if (!scope) return
-  const structure = downloadStructure.value
-  const infoUrl = scope.taskId
-    ? `/api/file-tasks/${scope.taskId}/download-zip-info`
-    : '/api/file-tasks/download-all-zip-info'
-  const zipUrl = scope.taskId
-    ? `/api/file-tasks/${scope.taskId}/download-zip`
-    : '/api/file-tasks/download-all-zip'
-
-  let info
-  try {
-    const res = await api.get(infoUrl, { params: { structure } })
-    info = res.data
-  } catch (err) {
-    showBlobError(err)
-    return
-  }
-  const total = info?.total_batches || 0
-  if (total === 0) {
-    ElMessage.warning('暂无可下载的文件')
-    downloadVisible.value = false
-    return
-  }
-
+  if (!scope || downloadBusy.value) return
   downloadBusy.value = true
-  downloadPercent.value = 0
-  downloadStatus.value = `正在下载第 1/${total} 批`
   try {
-    for (let i = 1; i <= total; i++) {
-      downloadStatus.value = `正在下载第 ${i}/${total} 批`
-      const res = await api.get(zipUrl, {
-        params: { structure, batch: i },
-        responseType: 'blob',
-      })
-      const suffix = total === 1 ? '' : `_第${i}批`
-      downloadBlob(res.data, `${scope.baseName}${suffix}.zip`)
-      downloadPercent.value = Math.round((i / total) * 100)
-      if (i < total) await new Promise(r => setTimeout(r, 300))
-    }
-    ElMessage.success('下载完成')
-  } catch (err) {
-    showBlobError(err)
-  } finally {
-    downloadBusy.value = false
+    const base = scope.taskId ? `/api/file-tasks/${scope.taskId}/download-zip` : '/api/file-tasks/download-all-zip'
+    const { data: info } = await api.get(base + '-info', { params: { structure: downloadStructure.value } })
+    if (!info.total_files) return ElMessage.warning('暂无可下载的文件')
+    await browserDownload(`${base}?structure=${downloadStructure.value}`)
+    ElMessage.success('已交给浏览器下载完整 ZIP，可在浏览器下载列表查看进度')
     downloadVisible.value = false
-  }
+  } catch (err) { showBlobError(err) }
+  finally { downloadBusy.value = false }
 }
 
 function downloadBlob(blob, filename) {
@@ -850,25 +817,10 @@ function showBlobError(err) {
 }
 
 async function downloadFile(sub) {
-  try {
-    const res = await api.get(`/api/file-tasks/submissions/${sub.id}/download`, { responseType: 'blob' })
-    const m = res.headers['content-disposition']?.match(/filename\*=UTF-8''(.+)/)
-    const filename = (m ? decodeURIComponent(m[1]) : '') || sub.original_name || sub.file_path?.split('/').pop() || 'file'
-    downloadBlob(res.data, filename)
-  } catch (err) {
-    showBlobError(err)
-  }
+  try { await browserDownload(`/api/file-tasks/submissions/${sub.id}/download`) } catch (err) { showBlobError(err) }
 }
-
 async function downloadStudentZip(row) {
-  try {
-    const res = await api.get(`/api/file-tasks/${detailTask.value.id}/students/${row.student_id}/download-zip`, { responseType: 'blob' })
-    const m = res.headers['content-disposition']?.match(/filename\*=UTF-8''(.+)/)
-    const filename = (m ? decodeURIComponent(m[1]) : '') || `${row.student_name}_提交文件.zip`
-    downloadBlob(res.data, filename)
-  } catch (err) {
-    showBlobError(err)
-  }
+  try { await browserDownload(`/api/file-tasks/${detailTask.value.id}/students/${row.student_id}/download-zip`) } catch (err) { showBlobError(err) }
 }
 
 async function handleDeleteSubmission(id) {

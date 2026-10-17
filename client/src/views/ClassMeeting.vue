@@ -163,7 +163,7 @@
           <el-input v-model="meetingForm.location" placeholder="请输入班会地点" />
         </el-form-item>
         <el-form-item label="描述">
-          <el-input v-model="meetingForm.description" type="textarea" :rows="4" placeholder="请输入班会描述" />
+          <RichEditor v-model="meetingForm.description" />
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="meetingForm.status" style="width: 100%">
@@ -237,7 +237,7 @@
           </el-descriptions-item>
           <el-descriptions-item label="发布人">{{ detailMeeting.author_name || '—' }}</el-descriptions-item>
           <el-descriptions-item label="描述" :span="isMobile ? 1 : 2">
-            <div class="pre-wrap-text">{{ detailMeeting.description || '—' }}</div>
+            <RichContent :content="detailMeeting.description || '—'" />
           </el-descriptions-item>
         </el-descriptions>
         

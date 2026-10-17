@@ -1,13 +1,25 @@
-import { createApp } from 'vue'
+import { createApp, defineAsyncComponent } from 'vue'
 import { createPinia } from 'pinia'
-import ElementPlus from 'element-plus'
-import 'element-plus/dist/index.css'
+import { ElConfigProvider } from 'element-plus'
+import 'element-plus/theme-chalk/base.css'
+import 'element-plus/theme-chalk/el-message.css'
+import 'element-plus/theme-chalk/el-message-box.css'
+import 'element-plus/theme-chalk/el-notification.css'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import App from './App.vue'
+import RichContent from './components/RichContent.vue'
+import './styles/theme.css'
 import router from './router'
 
 const app = createApp(App)
+app.component('RichEditor', defineAsyncComponent(() => import('./components/RichEditor.vue')))
+app.component('RichContent', RichContent)
 app.use(createPinia())
 app.use(router)
-app.use(ElementPlus, { locale: zhCn })
+
 app.mount('#app')
+
+window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); window.__installPrompt = event })
+if (import.meta.env.PROD && 'serviceWorker' in navigator && window.isSecureContext) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}))
+}

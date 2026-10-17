@@ -37,3 +37,18 @@ npm-debug.log*
 *.log
 .DS_Store
 Thumbs.db
+
+# Private configuration and mobile / test outputs
+config/
+napcat/
+client/android/
+client/ios/
+client/dist/
+client/test-results/
+client/playwright-report/
+*.apk
+*.aab
+*.ipa
+*.keystore
+*.jks
+!.env.example

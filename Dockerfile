@@ -1,7 +1,7 @@
 FROM node:22-alpine AS frontend
 WORKDIR /client
 COPY client/package.json client/package-lock.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 COPY client/ ./
 RUN npm run build
 
@@ -18,7 +18,11 @@ COPY backend/ .
 COPY --from=frontend /client/dist/ ./static/dist/
 
 # 确保上传目录存在
-RUN mkdir -p static/uploads
+RUN groupadd --gid 10001 classapp && useradd --uid 10001 --gid classapp --no-create-home classapp \
+    && mkdir -p static/uploads data archive-tmp \
+    && chown -R classapp:classapp /app
+
+USER classapp
 
 EXPOSE 8000
 
