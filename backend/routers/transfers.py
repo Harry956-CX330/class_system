@@ -13,7 +13,7 @@ DOWNLOAD_PATH = re.compile(r"/api/(?:file-tasks/(?:[0-9]+/(?:download-zip|studen
 MEDIA_PATH = re.compile(r"/static/rich/[a-f0-9]{32}\.[a-z0-9]+$")
 
 def make_ticket(path, user_id=None, view="", seconds=7200):
-    return jwt.encode({"aud": "download", "path": path, "uid": user_id, "view": view, "exp": int(time.time())+seconds}, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode({"aud": "download", "path": path, "uid": user_id, "view": view, "iat":time.time(), "exp": int(time.time())+seconds}, SECRET_KEY, algorithm=ALGORITHM)
 
 class DownloadRequest(BaseModel):
     path: str = Field(max_length=2048)
@@ -47,7 +47,7 @@ class TransferTicketMiddleware:
                 raise ValueError
             headers = [(k,v) for k,v in scope.get("headers", []) if k.lower() not in {b"authorization", b"x-view-mode"}]
             if claims.get("uid") is not None:
-                headers += [(b"authorization", ("Bearer " + create_access_token({"user_id": claims["uid"]})).encode()), (b"x-view-mode", claims.get("view", "").encode())]
+                headers += [(b"authorization", ("Bearer " + create_access_token({"user_id": claims["uid"], "iat":claims.get("iat",0)})).encode()), (b"x-view-mode", claims.get("view", "").encode())]
             elif MEDIA_PATH.fullmatch(parts.path):
                 scope = dict(scope, signed_media=True)
             else:

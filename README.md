@@ -1,5 +1,9 @@
 # 班级管理系统
 
+## 2.2.0 使用入口
+
+访问 `https://8.163.67.49:8000`。支持学号 / 姓名 / 原账号登录、管理员验证码重置密码、浏览器密码保存、蓝色浅深主题与跟随系统外观。管理员可在「登录页外观」更换班级轮播照片。框架和现有数据库结构保持不变，详细部署及证书续期见 `DEPLOYMENT.md`，APK 与 iOS 说明见 `MOBILE.md`。
+
 基于 Vue 3、FastAPI、SQLAlchemy 和 SQLite 的班级事务管理系统。当前版本保留已有业务 API 和数据库结构，适用于约 50 名用户的小型部署。
 
 版本 2 增加三端自适应界面、富文本与图文附件通知、问卷校验、完整 ZIP 下载及 3 Mbps 带宽下的总限速。见 [更新记录](CHANGELOG.md)、[部署说明](DEPLOYMENT.md) 和 [Android/iOS 安装说明](MOBILE.md)。Android APK 可在 Actions 的 Android APK 工作流成功后下载。

@@ -72,7 +72,7 @@ defineExpose({ patternError })
 <style scoped>
 .naming-rule { width:100%; }
 .naming-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-.naming-option { display:flex; flex-direction:column; gap:6px; padding:14px; text-align:left; background:#fff; border:1px solid #dce5ed; border-radius:10px; cursor:pointer; min-width:0; color:#203047; }
+.naming-option { display:flex; flex-direction:column; gap:6px; padding:14px; text-align:left; background:var(--surface); border:1px solid #dce5ed; border-radius:10px; cursor:pointer; min-width:0; color:#203047; }
 .naming-option.selected { border-color:#157f82; background:#edf7f6; box-shadow:0 0 0 1px #157f82 inset; }
 .naming-option-title { font-size:14px; font-weight:600; display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 .naming-option-desc { font-size:12px; color:#60798b; line-height:1.6; }

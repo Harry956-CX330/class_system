@@ -3,13 +3,20 @@
   "appName": "sk2441班务",
   "webDir": "dist",
   "server": {
-    "url": "http://8.163.67.49:8000",
-    "cleartext": true
+    "url": "https://8.163.67.49:8000",
+    "cleartext": false
   },
   "android": {
     "allowMixedContent": false
   },
   "ios": {
     "contentInset": "automatic"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover",
+      "style": "DEFAULT"
+    }
   }
 }

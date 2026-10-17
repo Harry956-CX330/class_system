@@ -169,7 +169,7 @@ onMounted(loadUrl)
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .iframe-wrapper {
@@ -197,7 +197,7 @@ onMounted(loadUrl)
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
   padding: 12px 0 0 0;
   border-top: 1px solid #F2F3F5;

@@ -12,7 +12,7 @@ from database import engine, validate_schema
 from middleware import ResourceLimitsMiddleware
 from security import SecurityMiddleware
 from routers.transfers import TransferTicketMiddleware
-from routers import media, transfers
+from routers import media, transfers, branding, password_reset
 from routers import users, notices, settings, grades, certificates, activities, groups, social_practices, dashboard, file_tasks, surveys, meetings, resources, textbooks, qq
 
 
@@ -33,13 +33,20 @@ app = FastAPI(title="数科2441班数据管理系统", version="2.0", lifespan=l
 app.add_middleware(ResourceLimitsMiddleware)
 app.add_middleware(TransferTicketMiddleware)
 app.add_middleware(SecurityMiddleware)
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["127.0.0.1"])
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=os.environ.get("TRUSTED_PROXY_HOSTS", "127.0.0.1").split(","))
 app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"],
                    expose_headers=["Content-Disposition", "Accept-Ranges", "Content-Range", "Retry-After"])
 for module in (users, notices, settings, grades, certificates, activities, groups, social_practices,
-               dashboard, file_tasks, surveys, meetings, resources, textbooks, qq, media, transfers):
+               dashboard, file_tasks, surveys, meetings, resources, textbooks, qq, media, transfers, branding, password_reset):
     app.include_router(module.router)
+
+# Validation failures must never echo passwords or verification codes.
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+@app.exception_handler(RequestValidationError)
+async def validation_error(request, error):
+    return JSONResponse(status_code=422, content={"detail":"输入格式不正确，请检查必填项和内容长度", "errors":[{"loc":list(item["loc"]),"type":item["type"]} for item in error.errors()]})
 
 
 @app.get("/api/health", include_in_schema=False)

@@ -252,7 +252,7 @@ onMounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 /* Tabs 美化 */
@@ -276,13 +276,13 @@ onMounted(() => {
 .file-name-cell {
   display: flex;
   align-items: center;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-weight: 500;
 }
 
 .file-icon {
   margin-right: 8px;
-  color: #165DFF;
+  color: var(--el-color-primary);
   font-size: 18px;
 }
 
@@ -294,7 +294,7 @@ onMounted(() => {
 }
 
 .sub-text {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }

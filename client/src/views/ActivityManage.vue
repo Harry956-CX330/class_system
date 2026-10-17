@@ -98,9 +98,9 @@
           <template v-else>{{ checkinInterval }}秒刷新模式（每{{ checkinInterval }}秒自动更新，防止截图代签）</template>
         </p>
         <div style="margin-top: 10px; display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap;">
-          <span style="color:#606266;font-size:13px;">刷新间隔：</span>
+          <span style="color:var(--el-text-color-regular);font-size:13px;">刷新间隔：</span>
           <el-input-number v-model="checkinInterval" :min="1" :max="3600" size="small" :disabled="checkinMode === 'fixed'" @change="saveCheckinInterval" />
-          <span style="color:#606266;font-size:13px;">秒</span>
+          <span style="color:var(--el-text-color-regular);font-size:13px;">秒</span>
         </div>
         <div style="margin-top: 10px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
           <el-button size="small" type="primary" @click="refreshCheckinCode">手动刷新</el-button>
@@ -573,7 +573,7 @@ onUnmounted(() => {
 
 .card-body p {
   margin: 6px 0;
-  color: #606266;
+  color: var(--el-text-color-regular);
   font-size: 14px;
 }
 
@@ -632,7 +632,7 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 10px;
   padding: 12px;
-  background: #F7F8FA;
+  background: var(--surface-soft);
   border-radius: 6px;
   border: 1px solid #EBEEF5;
 }
@@ -645,12 +645,12 @@ onUnmounted(() => {
 
 .part-name {
   font-weight: bold;
-  color: #303133;
+  color: var(--el-text-color-primary);
 }
 
 .part-id {
   font-size: 13px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
 }
 
 .part-actions {

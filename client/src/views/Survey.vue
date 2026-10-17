@@ -232,7 +232,7 @@
                 <template #default="{ row: r }">
                   <template v-if="q.question_type === 'rating'">
                     <span v-for="i in 5" :key="i" style="color: #F7BA1E;">{{ i <= r.answer ? '★' : '☆' }}</span>
-                    <span style="margin-left: 4px; color: #86909C; font-size: 12px;">{{ r.answer }} 分</span>
+                    <span style="margin-left: 4px; color: var(--el-text-color-secondary); font-size: 12px;">{{ r.answer }} 分</span>
                   </template>
                   <template v-else>{{ r.answer }}</template>
                 </template>
@@ -243,7 +243,7 @@
                 </template>
               </el-table-column>
               <template #empty>
-                <span style="color: #86909C; font-size: 13px;">暂无人作答此题</span>
+                <span style="color: var(--el-text-color-secondary); font-size: 13px;">暂无人作答此题</span>
               </template>
             </el-table>
 
@@ -256,7 +256,7 @@
                 <div class="mr-answer">
                   <template v-if="q.question_type === 'rating'">
                     <span v-for="i in 5" :key="i" style="color: #F7BA1E;">{{ i <= ans.answer ? '★' : '☆' }}</span>
-                    <span style="margin-left: 4px; color: #86909C; font-size: 12px;">{{ ans.answer }} 分</span>
+                    <span style="margin-left: 4px; color: var(--el-text-color-secondary); font-size: 12px;">{{ ans.answer }} 分</span>
                   </template>
                   <template v-else>{{ ans.answer }}</template>
                 </div>
@@ -356,7 +356,7 @@
             <el-radio value="asc">升序（从小到大）</el-radio>
             <el-radio value="desc">降序（从大到小）</el-radio>
           </el-radio-group>
-          <div v-if="exportSortBy === 'submitted_at'" style="font-size: 12px; color: #86909C; margin-top: 4px;">
+          <div v-if="exportSortBy === 'submitted_at'" style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px;">
             按提交时间排序时，先提交的在前，未提交的排最后
           </div>
         </el-form-item>
@@ -721,7 +721,7 @@ async function openStudentResult(row) {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 /* --- 移动端卡片视图样式 --- */
@@ -746,7 +746,7 @@ async function openStudentResult(row) {
 .mobile-survey-card .survey-title {
   font-weight: 600;
   font-size: 15px;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   flex: 1;
   margin-right: 12px;
   line-height: 1.4;
@@ -754,7 +754,7 @@ async function openStudentResult(row) {
 }
 
 .mobile-survey-card .survey-desc {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
   margin: 0 0 12px 0;
   display: -webkit-box;
@@ -767,7 +767,7 @@ async function openStudentResult(row) {
 
 .mobile-survey-card .meta-info {
   font-size: 12px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
 }
 
 .mobile-survey-card .card-footer {
@@ -787,17 +787,17 @@ async function openStudentResult(row) {
 /* 表格内文字美化 */
 .survey-title {
   font-weight: 500;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .survey-desc {
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   font-size: 13px;
   white-space: pre-wrap;
 }
 
 .time-text {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -810,12 +810,12 @@ async function openStudentResult(row) {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   font-size: 13px;
 }
 
 .deadline-icon {
-  color: #165DFF;
+  color: var(--el-color-primary);
 }
 
 :deep(.custom-table::before) {
@@ -850,7 +850,7 @@ async function openStudentResult(row) {
 }
 
 .survey-fill-desc {
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   line-height: 1.6;
   margin: 0;
   font-size: 14px;
@@ -870,14 +870,14 @@ async function openStudentResult(row) {
 
 .fq-index {
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   margin-right: 8px;
   font-size: 15px;
 }
 
 .fq-text {
   font-weight: 500;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-size: 15px;
   margin-right: 8px;
   flex: 1;
@@ -895,7 +895,7 @@ async function openStudentResult(row) {
 
 .fq-desc {
   font-size: 13px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin: 0 0 12px 20px;
   line-height: 1.5;
   white-space: pre-wrap;
@@ -921,7 +921,7 @@ async function openStudentResult(row) {
 
 /* 结果弹窗样式 */
 .result-card {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid #E5E6EB;
   border-radius: 8px;
   margin-bottom: 20px;
@@ -929,7 +929,7 @@ async function openStudentResult(row) {
 }
 
 .rq-header {
-  background: #F7F8FA;
+  background: var(--surface-soft);
   padding: 12px 16px;
   display: flex;
   align-items: flex-start;
@@ -939,19 +939,19 @@ async function openStudentResult(row) {
 
 .rq-index {
   font-weight: 600;
-  color: #165DFF;
+  color: var(--el-color-primary);
 }
 
 .rq-text {
   font-weight: 500;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   flex: 1;
 }
 
 .rq-desc {
   padding: 0 16px 12px;
   font-size: 13px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   line-height: 1.5;
   white-space: pre-wrap;
 }
@@ -959,7 +959,7 @@ async function openStudentResult(row) {
 .section-title {
   font-size: 15px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .result-table {
@@ -990,18 +990,18 @@ async function openStudentResult(row) {
 
 .mr-name {
   font-weight: 500;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-size: 14px;
 }
 
 .mr-time {
   font-size: 12px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
 }
 
 .mr-answer {
   font-size: 14px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all; /* 防止长字母/数字不换行 */
@@ -1023,7 +1023,7 @@ async function openStudentResult(row) {
 
 /* 票数统计柱状图 */
 .vote-summary {
-  background: #F7F8FA;
+  background: var(--surface-soft);
   border-radius: 6px;
   padding: 12px 16px;
   margin: 0 0 12px 0;
@@ -1032,7 +1032,7 @@ async function openStudentResult(row) {
 .vote-title {
   font-size: 13px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   margin-bottom: 10px;
 }
 
@@ -1046,7 +1046,7 @@ async function openStudentResult(row) {
 .vote-opt-name {
   font-size: 13px;
   font-weight: 500;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   min-width: 80px;
   flex-shrink: 0;
 }
@@ -1070,7 +1070,7 @@ async function openStudentResult(row) {
 .vote-count-num {
   font-size: 13px;
   font-weight: 600;
-  color: #165DFF;
+  color: var(--el-color-primary);
   min-width: 36px;
   text-align: right;
 }
@@ -1162,7 +1162,7 @@ async function openStudentResult(row) {
 }
 
 .author-qq {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 12px;
   margin-left: 4px;
 }

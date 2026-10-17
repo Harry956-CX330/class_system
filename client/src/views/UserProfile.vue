@@ -298,7 +298,7 @@ async function handlePasswordChange() {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .header-actions {
@@ -335,7 +335,7 @@ async function handlePasswordChange() {
 .name-row h2 {
   margin: 0;
   font-size: 24px;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-weight: 600;
 }
 
@@ -345,7 +345,7 @@ async function handlePasswordChange() {
 
 .user-subtitle {
   margin: 0;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 14px;
   display: flex;
   align-items: center;
@@ -360,7 +360,7 @@ async function handlePasswordChange() {
 .section-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   margin-bottom: 20px;
   padding-left: 20px;
 }
@@ -371,14 +371,14 @@ async function handlePasswordChange() {
 }
 
 :deep(.modern-descriptions .el-descriptions__label) {
-  background-color: #F7F8FA !important;
-  color: #4E5969;
+  background-color: var(--surface-soft) !important;
+  color: var(--el-text-color-regular);
   font-weight: 500;
   width: 140px;
 }
 
 :deep(.modern-descriptions .el-descriptions__content) {
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   padding: 16px 20px !important;
 }
 
@@ -389,7 +389,7 @@ async function handlePasswordChange() {
 
 .form-wrapper {
   max-width: 480px;
-  background: #F7F8FA;
+  background: var(--surface-soft);
   padding: 32px 32px 16px 16px;
   border-radius: 8px;
   border: 1px solid #E5E6EB;
@@ -402,11 +402,11 @@ async function handlePasswordChange() {
 
 /* 弹窗文本 */
 .dialog-desc {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
   margin-bottom: 24px;
   padding: 10px 16px;
-  background: #F2F3F5;
+  background: var(--el-bg-color-page);
   border-radius: 6px;
   line-height: 1.5;
 }

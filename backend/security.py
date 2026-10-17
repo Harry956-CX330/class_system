@@ -1,6 +1,7 @@
 """Bounded in-memory limits and response hardening for a single worker."""
 import asyncio
 import time
+import os
 from collections import OrderedDict
 from starlette.responses import JSONResponse
 from config import DOWNLOAD_BYTES_PER_SECOND
@@ -31,10 +32,18 @@ class SecurityMiddleware:
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         path = scope.get("path", "")
+        secure_origin = os.environ.get("HTTPS_REDIRECT_URL", "").rstrip("/")
+        host = dict(scope.get("headers", [])).get(b"host",b"").decode("ascii",errors="ignore").split(":")[0]
+        if secure_origin and scope.get("scheme") != "https" and host == "8.163.67.49":
+            from starlette.responses import RedirectResponse
+            target = secure_origin + scope.get("raw_path",path.encode()).decode("ascii")
+            if scope.get("query_string"):
+                target += "?" + scope["query_string"].decode("ascii")
+            return await RedirectResponse(target,status_code=308)(scope,receive,send)
         peer = (scope.get("client") or ("unknown", 0))[0]
         if path.startswith("/api/") and not self.limiter.allow((peer, "api"), 1800, 60):
             return await JSONResponse({"detail": "请求过于频繁，请稍后重试"}, 429, headers={"Retry-After": "60"})(scope, receive, send)
-        if path == "/api/login" and not self.limiter.allow((peer, "login"), 120, 60):
+        if path in {"/api/login", "/api/password-reset"} and not self.limiter.allow((peer, "login"), 120, 60):
             return await JSONResponse({"detail": "登录尝试过多，请稍后再试"}, 429, headers={"Retry-After": "60"})(scope, receive, send)
         if scope["method"] == "POST" and (path.endswith("/notify") or path.endswith("/remind") or path.endswith("/send-email")):
             identity = dict(scope.get("headers", [])).get(b"authorization", b"")
@@ -49,7 +58,7 @@ class SecurityMiddleware:
                 headers.extend([(b"x-content-type-options", b"nosniff"), (b"x-frame-options", b"DENY"),
                     (b"referrer-policy", b"no-referrer"), (b"permissions-policy", b"camera=(), microphone=(), geolocation=()"),
                     (b"content-security-policy", b"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self'; frame-src https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'")])
-                if path.startswith(("/api/", "/static/")):
+                if path.startswith(("/api/", "/static/")) and not path.startswith('/api/branding/images/'):
                     headers = [(k,v) for k,v in headers if k.lower() != b"cache-control"]
                     headers.append((b"cache-control", b"private, no-store"))
                 if scope.get("scheme") == "https":

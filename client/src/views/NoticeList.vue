@@ -359,7 +359,7 @@ async function handleQQNotify(row) {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 /* ================= 移动端卡片视图 ================= */
@@ -384,7 +384,7 @@ async function handleQQNotify(row) {
 
 .mobile-notice-title {
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-size: 15px;
   line-height: 1.4;
   word-break: break-all;
@@ -410,7 +410,7 @@ async function handleQQNotify(row) {
 
 .preview-content-mobile {
   font-size: 13px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   line-height: 1.6;
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -418,7 +418,7 @@ async function handleQQNotify(row) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: pre-wrap;
-  background-color: #F7F8FA;
+  background-color: var(--surface-soft);
   padding: 10px 12px;
   border-radius: 6px;
 }
@@ -444,7 +444,7 @@ async function handleQQNotify(row) {
 /* ================= PC端视图样式 ================= */
 .notice-title {
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-size: 15px;
 }
 
@@ -465,7 +465,7 @@ async function handleQQNotify(row) {
 
 .urgent-hint {
   font-size: 12px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin-left: 4px;
 }
 
@@ -473,25 +473,25 @@ async function handleQQNotify(row) {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   font-size: 13px;
 }
 
 .author-avatar {
-  background-color: #E8F3FF;
-  color: #165DFF;
+  background-color: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
   font-size: 12px;
   font-weight: bold;
 }
 
 .author-qq {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 12px;
   margin-left: 4px;
 }
 
 .time-text {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px;
 }
@@ -510,7 +510,7 @@ async function handleQQNotify(row) {
 .expand-preview {
   margin: 8px 32px 8px 50px;
   padding: 16px 24px;
-  background-color: #F7F8FA;
+  background-color: var(--surface-soft);
   border-left: 4px solid #165DFF;
   border-radius: 0 6px 6px 0;
 }
@@ -521,14 +521,14 @@ async function handleQQNotify(row) {
   gap: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: #165DFF;
+  color: var(--el-color-primary);
   margin-bottom: 8px;
 }
 
 .preview-content {
   white-space: pre-wrap;
   line-height: 1.8;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   font-size: 14px;
 }
 
@@ -539,7 +539,7 @@ async function handleQQNotify(row) {
 }
 :deep(.custom-textarea .el-textarea__inner) {
   padding: 12px 16px;
-  background-color: #F7F8FA;
+  background-color: var(--surface-soft);
 }
 
 /* 阅读详情与通用弹窗优化 */
@@ -569,7 +569,7 @@ async function handleQQNotify(row) {
 .article-title {
   margin: 0 0 16px 0;
   font-size: 22px;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   line-height: 1.4;
   word-break: break-all;
 }
@@ -578,7 +578,7 @@ async function handleQQNotify(row) {
   display: flex;
   justify-content: center;
   gap: 24px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
 }
 
@@ -596,7 +596,7 @@ async function handleQQNotify(row) {
 .article-content {
   white-space: pre-wrap;
   line-height: 1.8;
-  color: #333639;
+  color: var(--el-text-color-primary);
   font-size: 15px;
   padding: 0 8px;
   min-height: 150px;

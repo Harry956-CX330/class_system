@@ -531,7 +531,7 @@ onUnmounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 /* 统一卡片样式 */
@@ -551,13 +551,13 @@ onUnmounted(() => {
 .card-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .card-subtitle {
   margin-left: 12px;
   font-size: 13px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
 }
 
 /* 表单区域美化 */
@@ -599,13 +599,13 @@ onUnmounted(() => {
 /* 表格内元素美化 */
 .student-name {
   font-weight: 500;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .award-name-cell {
   display: flex;
   align-items: center;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-weight: 500;
 }
 
@@ -616,7 +616,7 @@ onUnmounted(() => {
 }
 
 .time-text {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -642,7 +642,7 @@ onUnmounted(() => {
   align-items: center;
   width: 100%;
   height: 100%;
-  background: #F7F8FA;
+  background: var(--surface-soft);
   color: #C9CDD4;
   font-size: 20px;
 }
@@ -670,7 +670,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-size: 15px;
   line-height: 1.4;
   padding-right: 8px;
@@ -680,7 +680,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #F7F8FA;
+  background-color: var(--surface-soft);
   padding: 12px;
   border-radius: 6px;
   margin-bottom: 12px;
@@ -689,13 +689,13 @@ onUnmounted(() => {
 .m-info-group p {
   margin: 0 0 4px 0;
   font-size: 13px;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 .m-info-group p:last-child {
   margin-bottom: 0;
 }
 .m-info-group .label {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin-right: 4px;
 }
 

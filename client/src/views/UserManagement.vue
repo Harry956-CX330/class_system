@@ -41,13 +41,13 @@
         </el-table-column>
         <el-table-column prop="email" label="邮箱" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
-            <span v-if="row.email" style="color: #165DFF;">{{ row.email }}</span>
+            <span v-if="row.email" style="color: var(--el-color-primary);">{{ row.email }}</span>
             <span v-else style="color: #C9CDD4">未填写</span>
           </template>
         </el-table-column>
         <el-table-column prop="qq_number" label="QQ号" min-width="130">
           <template #default="{ row }">
-            <span v-if="row.qq_number" style="color: #165DFF;">{{ row.qq_number }}</span>
+            <span v-if="row.qq_number" style="color: var(--el-color-primary);">{{ row.qq_number }}</span>
             <span v-else style="color: #C9CDD4">未填写</span>
           </template>
         </el-table-column>
@@ -105,6 +105,7 @@
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
+            <el-button v-if="authStore.user?.role==='admin'" size="small" type="primary" link @click="issueResetCode(row)">重置验证码</el-button>
             <el-button v-if="row.role !== 'admin'" size="small" type="primary" link :icon="Edit" @click="openEditDialog(row)">编辑</el-button>
             <el-button v-if="row.role !== 'admin'" size="small" type="danger" link :icon="Delete" @click="handleDelete(row)">删除</el-button>
           </template>
@@ -154,7 +155,9 @@
               <span class="value time-text">{{ new Date(row.created_at).toLocaleString('zh-CN', { hour12: false }) }}</span>
             </div>
           </div>
-          <div class="card-footer" v-if="row.role !== 'admin'">
+          <div class="card-footer">
+            <el-button v-if="authStore.user?.role==='admin'" size="small" type="primary" plain @click="issueResetCode(row)">重置验证码</el-button>
+            <template v-if="row.role !== 'admin'">
             <el-button size="small" type="primary" plain :icon="Edit" @click="openEditDialog(row)">编辑信息</el-button>
             <el-button size="small" type="warning" plain @click="toggleClassLeader(row)">
               {{ row.is_class_leader ? '取消班干' : '设为班干' }}
@@ -163,6 +166,7 @@
               {{ row.is_dorm_leader ? '取消宿舍长' : '设为宿舍长' }}
             </el-button>
             <el-button size="small" type="danger" plain :icon="Delete" @click="handleDelete(row)">移除用户</el-button>
+            </template>
           </div>
         </el-card>
         <el-empty v-if="users.length === 0" description="暂无用户数据" />
@@ -315,6 +319,15 @@ import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Upload, UploadFilled, Download, Edit, Delete } from '@element-plus/icons-vue'
 import api from '../api'
+import { useAuthStore } from '../stores/auth'
+const authStore=useAuthStore()
+async function issueResetCode(row) {
+  try {
+    await ElMessageBox.confirm(`为 ${row.real_name||row.username} 生成新的重置验证码？旧验证码将失效。请先核实本人身份。`,'生成验证码')
+    const {data}=await api.post(`/api/users/${row.id}/reset-code`)
+    await ElMessageBox.alert(`验证码：${data.code}。有效期 10 分钟，仅可使用一次。请通过可靠方式告知本人。`,'密码重置验证码',{confirmButtonText:'已记录',closeOnClickModal:false})
+  } catch(error) { if(error?.response)ElMessage.error(error.response.data.detail||'生成失败') }
+}
 
 const users = ref([])
 const loading = ref(false)
@@ -585,7 +598,7 @@ async function handleDelete(row) {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .header-actions {
@@ -622,7 +635,7 @@ async function handleDelete(row) {
 
 .user-account {
   font-size: 13px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
 }
 
 .mobile-user-card .card-body {
@@ -639,19 +652,19 @@ async function handleDelete(row) {
 }
 
 .info-row .label {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   width: 70px;
   flex-shrink: 0;
 }
 
 .info-row .value {
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   flex: 1;
   word-break: break-all;
 }
 
 .highlight-text {
-  color: #165DFF !important;
+  color: var(--el-color-primary) !important;
 }
 
 .empty-text {
@@ -689,17 +702,17 @@ async function handleDelete(row) {
 /* 表格内文字优化 */
 .user-name {
   font-weight: 500;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .id-text {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
 }
 
 .time-text {
   font-size: 13px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -756,11 +769,11 @@ async function handleDelete(row) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: #E8F3FF;
+  background-color: var(--el-color-primary-light-9);
   padding: 12px 16px;
   border-radius: 6px;
   margin-bottom: 20px;
-  color: #165DFF;
+  color: var(--el-color-primary);
   font-size: 14px;
 }
 
@@ -769,7 +782,7 @@ async function handleDelete(row) {
 }
 
 :deep(.drag-upload .el-upload-dragger) {
-  background-color: #F7F8FA;
+  background-color: var(--surface-soft);
   border-color: #E5E6EB;
   transition: all 0.3s;
   width: 100%;
@@ -780,19 +793,19 @@ async function handleDelete(row) {
 }
 
 :deep(.drag-upload .el-upload-dragger:hover) {
-  background-color: #E8F3FF;
+  background-color: var(--el-color-primary-light-9);
   border-color: #165DFF;
 }
 
 .json-hint {
   font-size: 13px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin-bottom: 12px;
   line-height: 1.6;
 }
 
 .json-hint code {
-  background: #F2F3F5;
+  background: var(--el-bg-color-page);
   padding: 2px 6px;
   border-radius: 4px;
   color: #F53F3F;
@@ -805,9 +818,9 @@ async function handleDelete(row) {
 
 :deep(.json-input .el-textarea__inner) {
   font-family: Consolas, Monaco, monospace;
-  background-color: #F7F8FA;
+  background-color: var(--surface-soft);
   font-size: 13px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
 }
 
 .action-row {

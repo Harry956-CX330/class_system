@@ -291,4 +291,77 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(payload['message'][0]['type'],'text');self.assertEqual(payload['message'][1]['type'],'image')
             self.assertEqual(call.call_args_list[1].args[1],'upload_group_file')
 
+    def test_login_student_id_and_real_name_and_ambiguous_names(self):
+        for name in ('20260002','张三'):
+            response=self.client.post('/api/login',json={'username':name,'password':'TestPassword123!'})
+            self.assertEqual(response.status_code,200,response.text)
+        with SessionLocal() as db:
+            db.add(User(id=90,username='ambiguous-name',real_name='张三',student_id='D90',role='student',hashed_password=get_password_hash('TestPassword123!')))
+            db.commit()
+        try:
+            self.assertEqual(self.client.post('/api/login',json={'username':'张三','password':'TestPassword123!'}).status_code,401)
+        finally:
+            with SessionLocal() as db:
+                db.delete(db.get(User,90));db.commit()
+
+    def test_reset_codes_permissions_attempts_one_use_and_session_revocation(self):
+        with SessionLocal() as db:
+            db.add(User(id=91,username='reset-test',real_name='重置测试',student_id='D91',role='student',hashed_password=get_password_hash('Original123!')))
+            db.commit()
+        old={'Authorization':'Bearer '+create_access_token({'user_id':91})}
+        self.assertEqual(self.client.post('/api/users/91/reset-code',headers=self.student).status_code,403)
+        result=self.client.post('/api/users/91/reset-code',headers=self.admin)
+        self.assertEqual(result.status_code,200,result.text)
+        code=result.json()['code']
+        data={'username':'D91','code':code,'password':'Changed123!'}
+        self.assertEqual(self.client.post('/api/password-reset',json=data).status_code,200)
+        self.assertEqual(self.client.post('/api/password-reset',json=data).status_code,400)
+        self.assertEqual(self.client.get('/api/users/profile',headers=old).status_code,401)
+        login=self.client.post('/api/login',json={'username':'D91','password':'Changed123!'})
+        self.assertEqual(login.status_code,200,login.text)
+        new={'Authorization':'Bearer '+login.json()['access_token']}
+        self.assertEqual(self.client.get('/api/users/profile',headers=new).status_code,200)
+        with SessionLocal() as db:
+            db.delete(db.get(User,91));db.commit()
+
+    def test_reset_code_lockout_expiry_and_validation_redaction(self):
+        import time
+        from services.private_settings import read_settings,write_settings,settings_lock
+        code=self.client.post('/api/users/3/reset-code',headers=self.admin).json()['code']
+        for _ in range(5):
+            r=self.client.post('/api/password-reset',json={'username':'20260003','code':'00000000' if code!='00000000' else '11111111','password':'NewPassword123!'})
+            self.assertEqual(r.status_code,400)
+        self.assertEqual(self.client.post('/api/password-reset',json={'username':'20260003','code':code,'password':'NewPassword123!'}).status_code,400)
+        with settings_lock:
+            records=read_settings('password-resets.json',{});records['3']['attempts']=0;records['3']['expires']=time.time()-1;write_settings('password-resets.json',records)
+        self.assertEqual(self.client.post('/api/password-reset',json={'username':'20260003','code':code,'password':'NewPassword123!'}).status_code,400)
+        r=self.client.post('/api/password-reset',json={'username':'missing','code':'secret-code','password':'secret'})
+        self.assertEqual(r.status_code,422)
+        self.assertNotIn('secret',r.text)
+
+    def test_branding_public_photos_and_admin_controls(self):
+        from PIL import Image
+        image=io.BytesIO();Image.new('RGB',(160,90),'blue').save(image,'PNG')
+        self.assertEqual(len(self.client.get('/api/branding').json()['slides']),3)
+        self.assertEqual(self.client.post('/api/branding/images',files={'file':('x.png',image.getvalue(),'image/png')},headers=self.student).status_code,403)
+        r=self.client.post('/api/branding/images',files={'file':('x.png',image.getvalue(),'image/png')},headers=self.admin)
+        self.assertEqual(r.status_code,200,r.text)
+        slide=r.json();public=self.client.get(slide['url'])
+        self.assertEqual(public.status_code,200);self.assertEqual(public.headers['content-type'],'image/webp')
+        self.assertIn('public',public.headers['cache-control'])
+        self.assertEqual(self.client.put('/api/branding',json={'slides':[{'url':'/static/private.png','caption':'bad'}]},headers=self.admin).status_code,400)
+        self.assertEqual(self.client.put('/api/branding',json={'slides':[slide]},headers=self.admin).status_code,200)
+        self.assertEqual(self.client.get('/api/branding').json()['slides'][0]['url'],slide['url'])
+        self.assertEqual(self.client.post('/api/branding/images',files={'file':('bad.svg',b'<svg/>','image/svg+xml')},headers=self.admin).status_code,400)
+        from routers.branding import DEFAULTS
+        self.client.put('/api/branding',json={'slides':DEFAULTS},headers=self.admin)
+        self.assertEqual(self.client.get(slide['url']).status_code,404)
+
+    def test_https_redirect_preserves_route_and_trusts_only_configured_proxy(self):
+        with patch.dict(os.environ,HTTPS_REDIRECT_URL='https://8.163.67.49:8000'):
+            r=self.client.get('/login?next=dashboard',headers={'host':'8.163.67.49:8000'},follow_redirects=False)
+            self.assertEqual(r.status_code,308)
+            self.assertEqual(r.headers['location'],'https://8.163.67.49:8000/login?next=dashboard')
+            self.assertEqual(self.client.get('/api/health').status_code,200)
+
 if __name__=='__main__': unittest.main()

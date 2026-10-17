@@ -267,11 +267,11 @@ onMounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .header-tip {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
 }
 

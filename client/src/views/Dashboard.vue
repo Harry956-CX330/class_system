@@ -86,6 +86,7 @@
 
         <!-- 管理端菜单 -->
         <template v-if="currentView === 'admin'">
+          <el-menu-item v-if="authStore.user?.role==='admin'" index="/appearance"><el-icon><Picture /></el-icon><span>登录页外观</span></el-menu-item>
           <el-menu-item index="/grades">
             <el-icon><Document /></el-icon>
             <span>成绩管理</span>
@@ -169,6 +170,7 @@
         </div>
         
         <div class="header-right">
+          <ThemeSwitch />
           <el-tag 
             size="small" 
             :type="currentView === 'admin' ? 'danger' : authStore.isClassLeader ? 'warning' : 'primary'" 
@@ -236,7 +238,7 @@
                 </div>
               </div>
             </div>
-            <img v-if="!isMobile" src="/icons/icon-192.png" alt="sk2441班徽" class="welcome-img"/>
+            <img v-if="!isMobile" src="/icons/crest.webp" alt="sk2441班徽" class="welcome-img"/>
           </div>
 
           <div class="section-title">获奖统计</div>
@@ -459,13 +461,11 @@
     <!-- 班委通讯录悬浮按钮 -->
     <div
       class="floating-help-btn"
-      @mouseenter="showCommittee = true"
-      @mouseleave="showCommittee = false"
-      @touchstart.prevent="showCommittee = !showCommittee"
     >
-      <el-icon :size="22"><QuestionFilled /></el-icon>
+      <button class="help-toggle" aria-label="班委联系方式" :aria-expanded="showCommittee" @click.stop="showCommittee=!showCommittee" @keydown.esc="showCommittee=false"><el-icon :size="22"><QuestionFilled /></el-icon></button>
       <Transition name="committee-pop">
-        <div v-if="showCommittee" class="committee-popup" @mouseenter="showCommittee = true" @mouseleave="showCommittee = false">
+        <div v-if="showCommittee" class="committee-popup" role="region" aria-label="班委联系信息" tabindex="0" @keydown.esc="showCommittee=false">
+          <button class="help-close" aria-label="关闭联系方式" @click.stop="showCommittee=false">关闭 ×</button>
           <template v-if="counselorInfo && (counselorInfo.name || counselorInfo.phone || counselorInfo.qq_number)">
             <div class="popup-title counselor-title">
               辅导员
@@ -541,6 +541,7 @@ import { ElMessageBox } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
 import api from '../api'
 import InstallApp from '../components/InstallApp.vue'
+import ThemeSwitch from '../components/ThemeSwitch.vue'
 const appVersion = __APP_VERSION__
 const buildRevision = __APP_REVISION__
 
@@ -548,7 +549,7 @@ import {
   DataAnalysis, Bell, Document, Medal, Stamp, FolderOpened, 
   EditPen, Calendar, Files, FolderAdd, UserFilled, CaretBottom, User, 
   SwitchButton, Trophy, Star, School, Compass, ArrowRight, Sunny, Message, Collection,
-  Fold, Expand, Reading, ChatDotSquare, Switch, QuestionFilled
+  Fold, Expand, Reading, ChatDotSquare, Switch, QuestionFilled, Picture
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -749,7 +750,7 @@ onUnmounted(() => {
 /* 全局布局配置 */
 .admin-layout {
   min-height: 100vh;
-  background-color: #F2F3F5;
+  background-color: var(--el-bg-color-page);
   overflow-x: hidden;
 }
 
@@ -845,7 +846,7 @@ onUnmounted(() => {
 
 /* ================= 顶部导航 ================= */
 .admin-header {
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
   display: flex;
   align-items: center;
@@ -864,18 +865,18 @@ onUnmounted(() => {
 .menu-toggle-btn {
   font-size: 20px;
   cursor: pointer;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   transition: color 0.3s;
 }
 
 .menu-toggle-btn:hover {
-  color: #165DFF;
+  color: var(--el-color-primary);
 }
 
 .page-title {
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .header-right {
@@ -902,13 +903,13 @@ onUnmounted(() => {
 }
 
 .user-dropdown:hover {
-  background: #F2F3F5;
+  background: var(--el-bg-color-page);
 }
 
 .username {
   margin: 0 8px;
   font-size: 14px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   font-weight: 500;
 }
 
@@ -921,7 +922,7 @@ onUnmounted(() => {
 }
 
 .page-container {
-  background: #fff;
+  background: var(--surface);
   border-radius: 8px;
   padding: 24px;
   min-height: calc(100vh - 108px);
@@ -929,7 +930,7 @@ onUnmounted(() => {
 }
 
 .welcome-card {
-  background: #fff;
+  background: var(--surface);
   border-radius: 8px;
   padding: 24px 32px;
   margin-bottom: 24px;
@@ -943,14 +944,14 @@ onUnmounted(() => {
 .welcome-info h2 {
   margin: 0 0 12px 0;
   font-size: 24px;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-weight: 600;
 }
 
 .welcome-info p {
   margin: 0;
   font-size: 14px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   line-height: 1.5;
 }
 
@@ -971,13 +972,13 @@ onUnmounted(() => {
 .welcome-stat-item .stat-num {
   font-size: 22px;
   font-weight: 700;
-  color: #165DFF;
+  color: var(--el-color-primary);
   line-height: 1.2;
 }
 
 .welcome-stat-item .stat-label {
   font-size: 12px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin-top: 2px;
 }
 
@@ -996,7 +997,7 @@ onUnmounted(() => {
 .section-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   margin-bottom: 16px;
   margin-top: 8px;
 }
@@ -1035,7 +1036,7 @@ onUnmounted(() => {
 
 .card-title {
   font-size: 14px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -1045,7 +1046,7 @@ onUnmounted(() => {
 .card-value {
   font-size: 28px;
   font-weight: 700;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-family: 'DIN Alternate', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1062,10 +1063,10 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.icon-primary { background: #E8F3FF; color: #165DFF; }
+.icon-primary { background: var(--el-color-primary-light-9); color: var(--el-color-primary); }
 .icon-success { background: #E8FFEA; color: #00B42A; }
 .icon-warning { background: #FFF7E8; color: #FF7D00; }
-.icon-info { background: #F2F3F5; color: #4E5969; }
+.icon-info { background: var(--el-bg-color-page); color: var(--el-text-color-regular); }
 .icon-purple { background: #F2E8FF; color: #722ED1; }
 .icon-danger { background: #FFECE8; color: #F53F3F; }
 
@@ -1077,22 +1078,22 @@ onUnmounted(() => {
 
 .notice-title {
   font-weight: 500;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .notice-time {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
 }
 
 .notice-content {
   padding: 16px 24px;
-  background-color: #F7F8FA;
+  background-color: var(--surface-soft);
   border-radius: 6px;
   margin: 0 12px;
   white-space: pre-wrap;
   line-height: 1.8;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
 }
 
 :deep(.el-table::before) {
@@ -1113,7 +1114,7 @@ onUnmounted(() => {
 }
 
 .mobile-notice-item:active {
-  background-color: #F7F8FA;
+  background-color: var(--surface-soft);
 }
 
 .mobile-notice-item:last-child {
@@ -1129,7 +1130,7 @@ onUnmounted(() => {
 
 .mn-title {
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-size: 15px;
   flex: 1;
   padding-right: 12px;
@@ -1138,13 +1139,13 @@ onUnmounted(() => {
 
 .mn-author {
   font-size: 12px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   white-space: nowrap;
 }
 
 .mn-content {
   font-size: 13px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   line-height: 1.6;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1175,7 +1176,7 @@ onUnmounted(() => {
 .urgent-content {
   white-space: pre-wrap;
   line-height: 1.9;
-  color: #333639;
+  color: var(--el-text-color-primary);
   font-size: 15px;
   padding: 8px 0;
   min-height: 80px;
@@ -1184,7 +1185,7 @@ onUnmounted(() => {
 .urgent-meta {
   display: flex;
   justify-content: space-between;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
   margin-top: 16px;
   padding-top: 12px;
@@ -1314,7 +1315,7 @@ onUnmounted(() => {
   width: 260px;
   max-height: 360px;
   overflow-y: auto;
-  background: #fff;
+  background: var(--surface);
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   padding: 16px;
@@ -1323,7 +1324,7 @@ onUnmounted(() => {
 .popup-title {
   font-size: 15px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid #E5E6EB;
@@ -1347,21 +1348,21 @@ onUnmounted(() => {
 
 .popup-name {
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-size: 14px;
 }
 
 .popup-position {
   font-size: 12px;
-  color: #165DFF;
-  background: #E8F3FF;
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
   padding: 2px 8px;
   border-radius: 4px;
 }
 
 .popup-contact {
   font-size: 12px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
@@ -1382,7 +1383,7 @@ onUnmounted(() => {
 .counselor-name {
   font-weight: 400;
   font-size: 13px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
 }
 
 .counselor-contact {

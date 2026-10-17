@@ -201,7 +201,7 @@
     </el-dialog>
 
     <el-dialog v-model="unassignedVisible" title="未分配名单" :width="isMobile ? '100%' : '500px'" :fullscreen="isMobile" class="modern-dialog">
-      <div v-if="unassignedList.length === 0" class="empty-questions" style="text-align: center; padding: 20px; color: #86909C; background: #F7F8FA; border-radius: 6px;">
+      <div v-if="unassignedList.length === 0" class="empty-questions" style="text-align: center; padding: 20px; color: var(--el-text-color-secondary); background: var(--surface-soft); border-radius: 6px;">
         🎉 全部学生都已加入分组
       </div>
       <el-table v-else :data="unassignedList" size="small" class="unassigned-table" max-height="400">
@@ -581,7 +581,7 @@ async function saveGroupNames() {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 /* 项目卡片 */
@@ -612,7 +612,7 @@ async function saveGroupNames() {
 
 .project-icon {
   font-size: 28px;
-  color: #165DFF;
+  color: var(--el-color-primary);
   flex-shrink: 0;
 }
 
@@ -624,12 +624,12 @@ async function saveGroupNames() {
   margin: 0 0 6px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .project-meta {
   font-size: 13px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   line-height: 1.5;
 }
 
@@ -689,7 +689,7 @@ async function saveGroupNames() {
 
 .join-label {
   font-size: 14px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   white-space: nowrap;
 }
 
@@ -718,7 +718,7 @@ async function saveGroupNames() {
 }
 
 .group-card {
-  background: #F7F8FA;
+  background: var(--surface-soft);
   border-radius: 8px;
   padding: 12px;
   margin-bottom: 16px;
@@ -748,7 +748,7 @@ async function saveGroupNames() {
 .group-num {
   font-weight: 600;
   font-size: 14px;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .group-members {
@@ -773,7 +773,7 @@ async function saveGroupNames() {
 .member-name {
   font-size: 13px;
   font-weight: 500;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   display: flex;
   align-items: center;
 }
@@ -785,7 +785,7 @@ async function saveGroupNames() {
 
 .member-id {
   font-size: 12px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
 }
 
 .empty-group {
@@ -806,7 +806,7 @@ async function saveGroupNames() {
 
 .group-cap-item {
   text-align: center;
-  background: #F7F8FA;
+  background: var(--surface-soft);
   padding: 8px;
   border-radius: 6px;
 }
@@ -814,7 +814,7 @@ async function saveGroupNames() {
 .cap-label {
   display: block;
   font-size: 12px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin-bottom: 6px;
 }
 

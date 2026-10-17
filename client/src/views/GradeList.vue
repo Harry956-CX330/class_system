@@ -45,7 +45,7 @@
 
     <!-- 管理端：各学生整体绩点汇总 -->
     <div v-if="authStore.canViewAllData && studentGpaList.length > 0" class="admin-gpa-section">
-      <h4 style="margin: 0 0 12px 0; color: #1D2129;">学生整体绩点汇总</h4>
+      <h4 style="margin: 0 0 12px 0; color: var(--el-text-color-primary);">学生整体绩点汇总</h4>
       <div class="gpa-student-grid">
         <div v-for="s in studentGpaList" :key="s.student_id" class="gpa-student-card" :class="{ 'gpa-student-danger': s.avgGpa < 2.0 }">
           <div class="gpa-student-name">{{ s.student_name }}</div>
@@ -85,7 +85,7 @@
 
     <!-- 学生端：我的修改申请 -->
     <div v-if="!authStore.canViewAllData && myRequests.length > 0" style="margin-bottom: 16px;">
-      <h4 style="margin: 0 0 8px 0; color: #1D2129;">我的成绩修改申请</h4>
+      <h4 style="margin: 0 0 8px 0; color: var(--el-text-color-primary);">我的成绩修改申请</h4>
       <div v-for="r in myRequests" :key="r.id" class="my-req-item" :class="'req-' + r.status">
         <div class="req-status">
           <el-tag v-if="r.status === 'pending'" type="warning" size="small">待审批</el-tag>
@@ -496,16 +496,16 @@ onMounted(() => {
   display: flex; justify-content: space-between; align-items: center;
   padding: 16px 20px; margin-bottom: 16px;
   border-radius: 8px; border: 1px solid #E5E6EB;
-  background: #F7F8FA; flex-wrap: wrap; gap: 12px;
+  background: var(--surface-soft); flex-wrap: wrap; gap: 12px;
 }
 .gpa-summary.gpa-warning {
   background: #FFF1F0; border-color: #FFA39E;
 }
 .gpa-main { display: flex; align-items: baseline; gap: 8px; }
-.gpa-label { color: #4E5969; font-size: 14px; }
-.gpa-value { font-size: 28px; font-weight: 700; color: #165DFF; }
+.gpa-label { color: var(--el-text-color-regular); font-size: 14px; }
+.gpa-value { font-size: 28px; font-weight: 700; color: var(--el-color-primary); }
 .gpa-value.gpa-danger { color: #F53F3F; }
-.gpa-total { color: #86909C; font-size: 13px; }
+.gpa-total { color: var(--el-text-color-secondary); font-size: 13px; }
 .gpa-alert {
   display: flex; align-items: center; gap: 6px;
   color: #F53F3F; font-size: 14px; font-weight: 600;
@@ -523,15 +523,15 @@ onMounted(() => {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px;
 }
 .gpa-student-card {
-  background: #fff; border: 1px solid #E5E6EB; border-radius: 8px;
+  background: var(--surface); border: 1px solid #E5E6EB; border-radius: 8px;
   padding: 12px; text-align: center; transition: border-color 0.2s;
 }
 .gpa-student-card.gpa-student-danger {
   border-color: #FFA39E; background: #FFF1F0;
 }
-.gpa-student-name { font-weight: 600; font-size: 14px; color: #1D2129; }
-.gpa-student-id { font-size: 12px; color: #86909C; margin-bottom: 6px; }
-.gpa-student-value { font-size: 24px; font-weight: 700; color: #165DFF; }
+.gpa-student-name { font-weight: 600; font-size: 14px; color: var(--el-text-color-primary); }
+.gpa-student-id { font-size: 12px; color: var(--el-text-color-secondary); margin-bottom: 6px; }
+.gpa-student-value { font-size: 24px; font-weight: 700; color: var(--el-color-primary); }
 .gpa-student-value.gpa-danger { color: #F53F3F; }
 .gpa-student-warn {
   margin-top: 4px; font-size: 12px; color: #F53F3F;
@@ -541,10 +541,10 @@ onMounted(() => {
 /* 修改申请 */
 .change-request-item {
   display: flex; align-items: center; gap: 16px;
-  padding: 10px 14px; background: #fff; border: 1px solid #FFE082;
+  padding: 10px 14px; background: var(--surface); border: 1px solid #FFE082;
   border-radius: 6px; margin-bottom: 8px; flex-wrap: wrap;
 }
-.cr-info { flex: 1; min-width: 200px; font-size: 13px; color: #4E5969; }
+.cr-info { flex: 1; min-width: 200px; font-size: 13px; color: var(--el-text-color-regular); }
 .cr-values { font-size: 13px; color: #E65100; white-space: nowrap; }
 .cr-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
@@ -556,8 +556,8 @@ onMounted(() => {
 .my-req-item.req-pending { background: #FFF8E1; border: 1px solid #FFE082; }
 .my-req-item.req-approved { background: #E8F5E9; border: 1px solid #A5D6A7; }
 .my-req-item.req-rejected { background: #FFEBEE; border: 1px solid #EF9A9A; }
-.req-detail { flex: 1; color: #4E5969; }
-.req-comment { color: #86909C; font-size: 12px; width: 100%; margin-top: 4px; }
+.req-detail { flex: 1; color: var(--el-text-color-regular); }
+.req-comment { color: var(--el-text-color-secondary); font-size: 12px; width: 100%; margin-top: 4px; }
 
 @media screen and (max-width: 768px) {
   .gpa-summary { flex-direction: column; align-items: flex-start; }

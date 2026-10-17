@@ -39,7 +39,7 @@ from services.utils import HAS_OPENPYXL
 from services.utils import decode_csv_content
 from services.utils import openpyxl
 from services.utils import user_to_dict
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 import csv
@@ -54,7 +54,11 @@ def login(req: LoginRequest, response: Response, request: Request, db: Session =
     key = hmac.new(SECRET_KEY.encode(), req.username.strip().lower().encode(), hashlib.sha256).digest()
     if not login_accounts.allow(key, 8, 300):
         raise HTTPException(429, "该账号登录尝试过多，请五分钟后再试", headers={"Retry-After": "300"})
-    user = db.query(User).filter(User.username == req.username).first()
+    name = req.username.strip()
+    matches = db.query(User).filter(or_(User.username == name, User.student_id == name, User.real_name == name)).all()
+    user = matches[0] if len(matches) == 1 else None
+    if user and not login_accounts.allow(("login-user", user.id), 16, 300):
+        raise HTTPException(429, "该账号登录尝试过多，请五分钟后再试")
     valid = verify_password(req.password, user.hashed_password if user else _DUMMY_HASH)
     if not user or not valid:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")

@@ -200,7 +200,7 @@ onBeforeUnmount(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .instruction-alert {
@@ -211,7 +211,7 @@ onBeforeUnmount(() => {
 .alert-content {
   margin: 4px 0;
   line-height: 1.8;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   font-size: 14px;
 }
 
@@ -222,7 +222,7 @@ onBeforeUnmount(() => {
 
 .form-tip {
   font-size: 12px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin-top: 6px;
   line-height: 1.4;
 }
@@ -234,12 +234,12 @@ onBeforeUnmount(() => {
 .api-doc-section h4 {
   font-size: 15px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   margin: 0 0 8px 0;
 }
 
 .doc-desc {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
   margin-bottom: 12px;
 }

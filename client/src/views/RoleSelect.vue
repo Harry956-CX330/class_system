@@ -70,14 +70,14 @@ function handleLogout() {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
-  background-color: #F2F3F5;
-  padding: 20px;
+  min-height: 100dvh;
+  background-color: var(--el-bg-color-page);
+  padding: calc(20px + var(--safe-top)) 20px calc(20px + max(env(safe-area-inset-bottom), var(--safe-area-inset-bottom, 0px)));
   box-sizing: border-box;
 }
 
 .role-select-card {
-  background: #fff;
+  background: var(--surface);
   border-radius: 16px;
   box-shadow: 0 8px 24px rgba(29, 33, 41, 0.08);
   padding: 48px;
@@ -108,13 +108,13 @@ function handleLogout() {
 .greeting {
   font-size: 22px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   margin: 0 0 8px 0;
 }
 
 .hint {
   font-size: 14px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin: 0;
 }
 
@@ -176,8 +176,8 @@ function handleLogout() {
 }
 
 .user-icon {
-  background: #E8F3FF;
-  color: #165DFF;
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
 }
 
 .admin-icon {
@@ -188,13 +188,13 @@ function handleLogout() {
 .role-title {
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   margin: 0 0 8px 0;
 }
 
 .role-desc {
   font-size: 13px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin: 0;
   line-height: 1.5;
 }

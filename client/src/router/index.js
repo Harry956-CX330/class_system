@@ -19,6 +19,7 @@ const routes = [
     component: () => import('../views/Dashboard.vue'),
     meta: { requiresAuth: true },
     children: [
+      { path: 'appearance', component: () => import('../views/AppearanceSettings.vue'), meta: {title:'登录页外观',requiresAdmin:true,systemAdmin:true} },
       { path: '', redirect: '/dashboard' },
       {
         path: 'dashboard',
@@ -150,6 +151,8 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
+
+  if (to.meta.systemAdmin && authStore.user?.role !== 'admin') { next('/dashboard'); return }
 
   // 未登录用户只能访问不需要认证的页面
   if (to.meta.requiresAuth && !authStore.isLoggedIn) {

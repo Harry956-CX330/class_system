@@ -318,7 +318,7 @@
         </el-tag>
       </div>
       <div v-if="confirmedList.length > 0" style="margin-top: 12px;">
-        <div style="font-size: 13px; color: #4E5969; margin-bottom: 8px;">
+        <div style="font-size: 13px; color: var(--el-text-color-regular); margin-bottom: 8px;">
           <el-icon style="color: #2E7D32;"><CircleCheck /></el-icon>
           已确认无需订购（{{ confirmedList.length }} 人）：
         </div>
@@ -422,7 +422,7 @@
       <div v-else class="mobile-list" v-loading="orderLoading">
         <el-card v-for="g in groupedOrders" :key="g.student_id" class="mobile-card" shadow="sm">
           <div class="card-header">
-            <span class="card-title">{{ g.student_name }} <span style="color: #86909C; font-size: 13px;">({{ g.student_student_id }})</span></span>
+            <span class="card-title">{{ g.student_name }} <span style="color: var(--el-text-color-secondary); font-size: 13px;">({{ g.student_student_id }})</span></span>
             <el-popconfirm title="确定删除？" @confirm="deleteStudentOrders(g.student_id)">
               <template #reference>
                 <el-button type="danger" link size="small" :icon="Delete" />
@@ -566,7 +566,7 @@
       <div class="confirm-content">
         <div class="no-order-msg">
           <el-icon style="font-size: 24px; color: #E6A23C;"><WarningFilled /></el-icon>
-          <p style="margin: 12px 0 0; color: #4E5969; font-size: 14px; line-height: 1.8;">
+          <p style="margin: 12px 0 0; color: var(--el-text-color-regular); font-size: 14px; line-height: 1.8;">
             确认后表示你<strong>不需要订购任何教材</strong>。<br/>
             之后仍可在截止时间前取消确认并重新选购。
           </p>
@@ -1158,7 +1158,7 @@ onUnmounted(() => {
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
 .header-left { display: flex; align-items: center; }
 .title-indicator { width: 4px; height: 18px; background-color: #165DFF; border-radius: 2px; margin-right: 12px; }
-.page-title { margin: 0; font-size: 18px; font-weight: 600; color: #1D2129; }
+.page-title { margin: 0; font-size: 18px; font-weight: 600; color: var(--el-text-color-primary); }
 .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .price-discount { color: #F53F3F; }
 
@@ -1169,18 +1169,18 @@ onUnmounted(() => {
 }
 .summary-header { display: flex; align-items: center; gap: 6px; color: #2E7D32; font-weight: 600; font-size: 14px; margin-bottom: 10px; }
 .summary-items { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-.summary-item { display: flex; align-items: center; gap: 8px; background: #fff; border-radius: 6px; padding: 6px 12px; font-size: 13px; }
+.summary-item { display: flex; align-items: center; gap: 8px; background: var(--surface); border-radius: 6px; padding: 6px 12px; font-size: 13px; }
 .si-name { font-weight: 600; }
-.si-course { color: #86909C; }
+.si-course { color: var(--el-text-color-secondary); }
 .si-price { color: #F53F3F; font-weight: 600; }
-.summary-totals { display: flex; align-items: center; gap: 12px; font-size: 14px; color: #4E5969; }
+.summary-totals { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--el-text-color-regular); }
 .total-divider { color: #C9CDD4; }
 
 .no-order-hint {
   display: flex; align-items: center; gap: 8px;
   background: #F0F5FF; border: 1px solid #D6E4FF; border-radius: 8px;
   padding: 12px 16px; margin-bottom: 16px;
-  color: #165DFF; font-size: 14px;
+  color: var(--el-color-primary); font-size: 14px;
 }
 
 .no-order-bar {
@@ -1195,28 +1195,28 @@ onUnmounted(() => {
   padding: 16px 20px; margin-top: 16px;
   background: #F0F5FF; border: 1px solid #D6E4FF; border-radius: 8px;
 }
-.submit-info { display: flex; align-items: center; gap: 8px; color: #4E5969; font-size: 14px; flex-wrap: wrap; }
+.submit-info { display: flex; align-items: center; gap: 8px; color: var(--el-text-color-regular); font-size: 14px; flex-wrap: wrap; }
 .sb-divider { color: #C9CDD4; }
-.sb-hint { color: #86909C; font-size: 12px; }
+.sb-hint { color: var(--el-text-color-secondary); font-size: 12px; }
 
 .textbook-table, .order-table { width: 100%; }
 .order-list-card { margin-bottom: 0; }
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
-.section-title { font-size: 15px; font-weight: 600; color: #1D2129; }
-.stats-row { display: flex; gap: 20px; color: #4E5969; font-size: 14px; }
+.section-title { font-size: 15px; font-weight: 600; color: var(--el-text-color-primary); }
+.stats-row { display: flex; gap: 20px; color: var(--el-text-color-regular); font-size: 14px; }
 
 /* 分组订单卡片 */
 .grouped-order-list { display: flex; flex-direction: column; gap: 12px; }
 .empty-hint { text-align: center; padding: 20px 0; }
 .student-order-card {
-  background: #fff; border: 1px solid #E5E6EB; border-radius: 8px; padding: 14px 18px;
+  background: var(--surface); border: 1px solid #E5E6EB; border-radius: 8px; padding: 14px 18px;
   transition: box-shadow 0.2s;
 }
 .student-order-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
 .soc-header { display: flex; align-items: center; gap: 20px; }
 .soc-student { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
-.soc-sid { color: #86909C; font-size: 12px; margin-left: 6px; }
-.soc-totals { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #4E5969; white-space: nowrap; flex-shrink: 0; }
+.soc-sid { color: var(--el-text-color-secondary); font-size: 12px; margin-left: 6px; }
+.soc-totals { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--el-text-color-regular); white-space: nowrap; flex-shrink: 0; }
 .soc-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .soc-divider { color: #C9CDD4; }
 .soc-detail { margin-top: 12px; border-top: 1px solid #E5E6EB; padding-top: 12px; }
@@ -1225,7 +1225,7 @@ onUnmounted(() => {
   table-layout: fixed;
 }
 .soc-table th {
-  background: #F7F8FA; color: #4E5969; font-weight: 500;
+  background: var(--surface-soft); color: var(--el-text-color-regular); font-weight: 500;
   padding: 8px 12px; text-align: left; white-space: nowrap;
   border-bottom: 1px solid #E5E6EB;
 }
@@ -1238,7 +1238,7 @@ onUnmounted(() => {
 .soc-table th:nth-child(7) { width: 9%; }
 .soc-table th:nth-child(8) { width: 8%; }
 .soc-table td {
-  padding: 8px 12px; color: #1D2129;
+  padding: 8px 12px; color: var(--el-text-color-primary);
   border-bottom: 1px solid #F2F3F5;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -1249,7 +1249,7 @@ onUnmounted(() => {
 .unordered-count { color: #F53F3F; font-size: 13px; margin-left: 8px; font-weight: 500; }
 .unordered-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .unordered-tag { cursor: default; }
-.unordered-hint { display: flex; align-items: center; gap: 6px; color: #86909C; font-size: 12px; margin-top: 12px; }
+.unordered-hint { display: flex; align-items: center; gap: 6px; color: var(--el-text-color-secondary); font-size: 12px; margin-top: 12px; }
 
 /* 统计 */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
@@ -1257,27 +1257,27 @@ onUnmounted(() => {
   background: #FAFBFC; border: 1px solid #E5E6EB; border-radius: 8px;
   padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;
 }
-.stat-book-name { font-weight: 600; font-size: 14px; color: #1D2129; }
+.stat-book-name { font-weight: 600; font-size: 14px; color: var(--el-text-color-primary); }
 .stat-book-meta { display: flex; align-items: center; gap: 6px; }
-.stat-course { color: #86909C; font-size: 12px; }
+.stat-course { color: var(--el-text-color-secondary); font-size: 12px; }
 .stat-count { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; }
-.stat-num { font-size: 24px; font-weight: 700; color: #165DFF; }
-.stat-label { color: #86909C; font-size: 13px; }
+.stat-num { font-size: 24px; font-weight: 700; color: var(--el-color-primary); }
+.stat-label { color: var(--el-text-color-secondary); font-size: 13px; }
 
 /* 确认弹窗 */
 .confirm-content { padding: 0 8px; }
 .confirm-books { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
-.confirm-book-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: #F7F8FA; border-radius: 6px; font-size: 14px; }
+.confirm-book-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: var(--surface-soft); border-radius: 6px; font-size: 14px; }
 .cbi-name { font-weight: 600; flex: 1; }
-.cbi-course { color: #86909C; }
+.cbi-course { color: var(--el-text-color-secondary); }
 .cbi-price { color: #F53F3F; font-weight: 600; }
 .confirm-totals { text-align: right; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
-.confirm-total-row { color: #4E5969; }
+.confirm-total-row { color: var(--el-text-color-regular); }
 .signature-label { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
-.signature-desc { color: #86909C; font-size: 13px; margin-bottom: 12px; line-height: 1.6; }
+.signature-desc { color: var(--el-text-color-secondary); font-size: 13px; margin-bottom: 12px; line-height: 1.6; }
 .signature-hint { color: #F53F3F; font-size: 12px; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
 .payment-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
-.payment-info p { color: #86909C; font-size: 13px; line-height: 1.6; margin: 0; }
+.payment-info p { color: var(--el-text-color-secondary); font-size: 13px; line-height: 1.6; margin: 0; }
 
 /* 移动端 */
 .mobile-list { display: flex; flex-direction: column; gap: 12px; }
@@ -1285,13 +1285,13 @@ onUnmounted(() => {
 .mobile-card.is-ordered { border-color: #2E7D32; background: #F1F8E9; }
 .mobile-card.is-selected { border-color: #E6A23C; background: #FDF6EC; }
 .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #F2F3F5; }
-.card-title { font-weight: 600; font-size: 15px; color: #1D2129; line-height: 1.4; flex: 1; margin-right: 12px; }
+.card-title { font-weight: 600; font-size: 15px; color: var(--el-text-color-primary); line-height: 1.4; flex: 1; margin-right: 12px; }
 .card-body { display: flex; flex-direction: column; gap: 6px; }
 .info-row { display: flex; align-items: flex-start; font-size: 13px; line-height: 1.5; }
-.info-row .label { color: #86909C; min-width: 50px; flex-shrink: 0; }
-.info-row .value { color: #4E5969; word-break: break-all; }
-.info-row .price-crossed { text-decoration: line-through; color: #86909C; font-size: 12px; margin-left: 6px; }
-.notes-text { color: #1D2129 !important; }
+.info-row .label { color: var(--el-text-color-secondary); min-width: 50px; flex-shrink: 0; }
+.info-row .value { color: var(--el-text-color-regular); word-break: break-all; }
+.info-row .price-crossed { text-decoration: line-through; color: var(--el-text-color-secondary); font-size: 12px; margin-left: 6px; }
+.notes-text { color: var(--el-text-color-primary) !important; }
 .m-order-item { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
 .card-footer { margin-top: 12px; padding-top: 12px; border-top: 1px solid #F2F3F5; display: flex; gap: 8px; }
 .card-footer .el-button { margin-left: 0 !important; flex: 1; }
@@ -1302,7 +1302,7 @@ onUnmounted(() => {
   background: #F0F5FF; border: 1px solid #D6E4FF; border-radius: 8px;
   position: sticky; bottom: 0;
 }
-.mobile-submit-info { display: flex; flex-direction: column; font-size: 12px; color: #4E5969; gap: 2px; }
+.mobile-submit-info { display: flex; flex-direction: column; font-size: 12px; color: var(--el-text-color-regular); gap: 2px; }
 
 .config-card { margin-bottom: 16px; }
 .mobile-config { display: flex; flex-direction: column; }
@@ -1312,7 +1312,7 @@ onUnmounted(() => {
   .header-actions { width: 100%; }
   .header-actions .el-button { flex: 1; margin-left: 0 !important; }
   .section-header { flex-direction: column; align-items: flex-start; }
-  .stats-row { flex-direction: column; gap: 6px; width: 100%; background: #F7F8FA; padding: 12px; border-radius: 6px; }
+  .stats-row { flex-direction: column; gap: 6px; width: 100%; background: var(--surface-soft); padding: 12px; border-radius: 6px; }
   .stat-item { display: flex; justify-content: space-between; }
   .my-orders-summary { padding: 12px 16px; }
   .submit-bar { flex-direction: column; gap: 12px; }

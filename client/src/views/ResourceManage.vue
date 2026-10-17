@@ -452,7 +452,7 @@ onUnmounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 /* 卡片通用样式 */
@@ -473,7 +473,7 @@ onUnmounted(() => {
 .card-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 /* 分类标签区域 */
@@ -490,16 +490,16 @@ onUnmounted(() => {
   line-height: 30px;
   border-radius: 16px;
   border: 1px solid #E5E6EB;
-  background: #F7F8FA;
-  color: #4E5969;
+  background: var(--surface-soft);
+  color: var(--el-text-color-regular);
   font-size: 13px;
   transition: all 0.3s;
 }
 
 .custom-tag:hover {
-  background: #E8F3FF;
+  background: var(--el-color-primary-light-9);
   border-color: #165DFF;
-  color: #165DFF;
+  color: var(--el-color-primary);
 }
 
 .tag-icon {
@@ -508,12 +508,12 @@ onUnmounted(() => {
 }
 
 .count {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin-left: 2px;
 }
 
 .empty-text {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 14px;
 }
 
@@ -547,7 +547,7 @@ onUnmounted(() => {
 .file-choose-btn {
   width: 100%;
   justify-content: flex-start;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   border-color: #E5E6EB;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -578,19 +578,19 @@ onUnmounted(() => {
 .file-name-cell {
   display: flex;
   align-items: center;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-weight: 500;
 }
 
 .file-icon {
   margin-right: 8px;
-  color: #165DFF;
+  color: var(--el-color-primary);
   font-size: 16px;
   flex-shrink: 0;
 }
 
 .sub-text {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -634,7 +634,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-size: 15px;
 }
 
@@ -653,7 +653,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   font-size: 13px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
 }
 
 .mt-1 {
@@ -661,7 +661,7 @@ onUnmounted(() => {
 }
 
 .m-size, .m-uploader, .m-time {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
 }
 
 .m-card-footer {

@@ -12,6 +12,8 @@ from models import User
 from config import DATA_DIR
 from pathlib import Path
 import secrets
+import time
+from services.private_settings import read_settings, settings_lock
 
 def _load_secret():
     configured = os.environ.get("SECRET_KEY")
@@ -52,6 +54,7 @@ def get_password_hash(password: str) -> str:
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
+    to_encode.setdefault("iat", time.time())
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -75,6 +78,10 @@ def get_current_user(
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
+    with settings_lock:
+        reset_at = read_settings("password-revocations.json", {}).get(str(user.id), 0)
+    if reset_at and payload.get("iat", 0) <= reset_at:
+        raise HTTPException(401, "密码已重置，请重新登录")
     return user
 
 

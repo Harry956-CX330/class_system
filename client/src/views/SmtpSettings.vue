@@ -394,7 +394,7 @@ onUnmounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .config-alert {
@@ -405,7 +405,7 @@ onUnmounted(() => {
 .alert-content {
   margin: 0;
   line-height: 1.8;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
 }
 
 .responsive-form {
@@ -434,7 +434,7 @@ onUnmounted(() => {
 }
 
 .status-text {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin-left: 12px;
   font-size: 14px;
 }
@@ -464,7 +464,7 @@ onUnmounted(() => {
 
 .time-text {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
 }
 
 .error-msg {
@@ -507,7 +507,7 @@ onUnmounted(() => {
 .history-card .subject-text {
   font-weight: 600;
   font-size: 15px;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   line-height: 1.4;
   word-break: break-all;
 }
@@ -524,13 +524,13 @@ onUnmounted(() => {
 }
 
 .history-card .label {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   width: 60px;
   flex-shrink: 0;
 }
 
 .history-card .value {
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   flex: 1;
   word-break: break-all;
 }

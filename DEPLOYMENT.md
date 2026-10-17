@@ -1,5 +1,26 @@
 # 部署与资源配置
 
+## 2.2.0 登录、外观和 HTTPS
+
+正式入口为 `https://8.163.67.49:8000`。系统管理员在「登录页外观」管理最多 6 张公开轮播图，在「用户管理」生成密码重置验证码。照片、配置、验证码摘要及会话撤销记录保存在 `DATA_DIR`，需纳入备份；数据库结构保持不变。验证码只在生成时返回管理员，10 分钟有效、5 次错误后作废；新验证码替换旧码，成功重置后旧会话及用户下载票据失效。
+
+「保存密码」使用浏览器密码管理器及 `autocomplete`，支持 Credential Management API 的 HTTPS 浏览器还可调用其保存接口；是否允许保存由浏览器及用户设置决定。应用只记住账号选项，不明文保存密码。开发者工具仍能查看本机提交的表单数据，这是浏览器正常行为；HTTPS 保护传输，不能隐藏使用者自己的网络面板。
+
+TLS 代理使用单进程 Nginx Docker 容器（0.15 CPU / 48 MiB），业务容器绑定 `127.0.0.1:18000`，候选容器使用 `18001`。Nginx 在 8000 提供 TLS，80 提供 ACME 验证和 HTTPS 跳转，普通 HTTP 访问 8000 也跳转 HTTPS。不依赖公网 443，云安全组需放行 80/8000。关闭代理缓冲，继续使用应用的下载总限速、并发限制和 Range。
+
+服务器 `/root/class-system-tls` 包含私密证书、ACME 配置、固定镜像摘要的 Compose 配置和续期脚本，不进入 Git。首次签发使用 Certbot 5.8.0 的 `certonly --standalone --ip-address 8.163.67.49 --required-profile shortlived`，需接受 CA 条款并挂载同一配置目录。证书有效期约 6 天，`class-system-certificate.timer` 每六小时检查续期，使用 webroot 验证保持网站在线，成功后 reload Nginx。部署后必须验证公网证书及 `renew.sh --dry-run`，并检查 systemd 定时器与失败日志。
+
+已签发证书的当前服务器发布流程：
+
+```sh
+python3 scripts/deploy_server.py --release /root/class-system-releases/提交号 --source /root/class-sys-app --old-container class-system --public-url https://8.163.67.49:8000 --backend-port 18000 --candidate-port 18001
+# 宿主机防火墙允许 8000/tcp；Docker 镜像预先下载。
+NGINX_IMAGE=public.ecr.aws/docker/library/nginx:stable-alpine python3 scripts/configure_tls.py --port 8000 --backend-port 18000
+/root/class-system-tls/renew.sh --dry-run
+```
+
+`configure_tls.py` 读取已有证书并配置代理和续期定时器。若需回滚到旧版 HTTP 部署，先停止 `class-system-https` 释放 8000，再执行该次发布的 `rollback.sh`，避免端口冲突。证书续期失败应检查 `journalctl -u class-system-certificate.service` 和云安全组 80 端口，不能跳过证书验证。
+
 系统保持 Vue 3、FastAPI、SQLAlchemy 和 SQLite。Docker 构建时打包 Vue 前端，运行单个 Uvicorn worker；应用容器限制为 1.5 CPU、512 MiB RAM。剩余资源留给宿主机和可选的 NapCat 服务。默认面向 50 人的小班使用。
 
 ## 避免更新后仍显示旧页面

@@ -840,7 +840,7 @@ onBeforeUnmount(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .header-actions {
@@ -871,14 +871,14 @@ onBeforeUnmount(() => {
 .mobile-task-card .task-title {
   font-weight: 600;
   font-size: 15px;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   flex: 1;
   margin-right: 12px;
   line-height: 1.4;
 }
 
 .mobile-task-card .task-desc {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
   margin: 0 0 12px 0;
   display: -webkit-box;
@@ -893,7 +893,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 6px;
   font-size: 12px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
 }
 
 .mobile-task-card .card-footer {
@@ -916,7 +916,7 @@ onBeforeUnmount(() => {
 
 /* 详情弹窗顶部信息块 */
 .task-detail-header {
-  background-color: #F7F8FA;
+  background-color: var(--surface-soft);
   padding: 20px 24px;
   border-radius: 8px;
   margin-bottom: 24px;
@@ -925,7 +925,7 @@ onBeforeUnmount(() => {
 .detail-title {
   margin: 0 0 12px 0;
   font-size: 18px;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-weight: 600;
 }
 
@@ -933,7 +933,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 16px 24px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
   margin-bottom: 12px;
 }
@@ -945,7 +945,7 @@ onBeforeUnmount(() => {
 }
 
 .detail-desc {
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   line-height: 1.6;
   font-size: 14px;
   white-space: pre-wrap;
@@ -964,7 +964,7 @@ onBeforeUnmount(() => {
 .section-title {
   font-size: 15px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   padding-left: 4px;
 }
 
@@ -986,7 +986,7 @@ onBeforeUnmount(() => {
 }
 .file-name {
   font-size: 13px;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   word-break: break-all;
 }
 .file-actions {
@@ -1006,7 +1006,7 @@ onBeforeUnmount(() => {
 .mobile-sub-card {
   display: flex;
   flex-direction: column;
-  background-color: #F7F8FA;
+  background-color: var(--surface-soft);
   border-radius: 8px;
   border: 1px solid #E5E6EB;
   overflow: hidden;
@@ -1018,11 +1018,11 @@ onBeforeUnmount(() => {
   align-items: center;
   padding: 12px 16px;
   cursor: pointer;
-  background: #fff;
+  background: var(--surface);
 }
 
 .expand-icon {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   transition: transform 0.3s;
 }
 .expand-icon.is-expanded {
@@ -1037,23 +1037,23 @@ onBeforeUnmount(() => {
 
 .sub-name {
   font-weight: 500;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-size: 15px;
 }
 
 .sub-id {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
   font-weight: normal;
 }
 
 .sub-time {
   font-size: 12px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
 }
 
 .sub-files-list {
-  background: #fff;
+  background: var(--surface);
   border-top: 1px dashed #E5E6EB;
 }
 
@@ -1077,7 +1077,7 @@ onBeforeUnmount(() => {
 
 .file-icon {
   margin-top: 2px;
-  color: #165DFF;
+  color: var(--el-color-primary);
 }
 
 .file-actions-mobile {
@@ -1102,10 +1102,10 @@ onBeforeUnmount(() => {
 }
 
 .empty-hint-box {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   padding: 16px 0;
   text-align: center;
-  background: #F7F8FA;
+  background: var(--surface-soft);
   border-radius: 6px;
   font-size: 13px;
 }
@@ -1126,11 +1126,11 @@ onBeforeUnmount(() => {
 
 /* 学生提交区美化 */
 .submit-task-info {
-  background-color: #E8F3FF;
+  background-color: var(--el-color-primary-light-9);
   border-radius: 6px;
   padding: 16px 20px;
   margin-bottom: 24px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   font-size: 14px;
 }
 
@@ -1144,7 +1144,7 @@ onBeforeUnmount(() => {
 }
 
 .info-row strong {
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   flex-shrink: 0;
 }
 
@@ -1165,7 +1165,7 @@ onBeforeUnmount(() => {
 
 .pattern-tip {
   font-size: 12px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin-top: 8px;
   line-height: 1.5;
 }
@@ -1177,13 +1177,13 @@ onBeforeUnmount(() => {
 :deep(.drag-upload .el-upload-dragger) {
   width: 100%;
   box-sizing: border-box;
-  background-color: #F7F8FA;
+  background-color: var(--surface-soft);
   border-color: #E5E6EB;
   transition: all 0.3s;
 }
 
 :deep(.drag-upload .el-upload-dragger:hover) {
-  background-color: #E8F3FF;
+  background-color: var(--el-color-primary-light-9);
   border-color: #165DFF;
 }
 
@@ -1191,18 +1191,18 @@ onBeforeUnmount(() => {
 .upload-progress-wrapper {
   margin-top: 20px;
   padding: 16px 20px;
-  background: #F7F8FA;
+  background: var(--surface-soft);
   border-radius: 8px;
 }
 .progress-text {
   font-size: 13px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 .progress-hint {
   margin: 8px 0 0 0;
   font-size: 12px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   text-align: center;
 }
 
@@ -1221,15 +1221,15 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 13px;
 }
-.deadline-icon { color: #165DFF; }
+.deadline-icon { color: var(--el-color-primary); }
 .is-expired { color: #F53F3F; }
 .is-expired-text { color: #F53F3F; font-weight: 500; }
-.id-text { font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #4E5969; }
-.time-text { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; color: #86909C; }
+.id-text { font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: var(--el-text-color-regular); }
+.time-text { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; color: var(--el-text-color-secondary); }
 .empty-text { color: #C9CDD4; font-size: 13px; }
 
 /* ================= 移动端极致适配 ================= */
@@ -1310,7 +1310,7 @@ onBeforeUnmount(() => {
 }
 
 .author-qq {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 12px;
   margin-left: 4px;
 }

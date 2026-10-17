@@ -59,7 +59,7 @@
       >
         <el-table-column prop="title" label="班会标题" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
-            <span style="font-weight: 500; color: #1D2129">{{ row.title }}</span>
+            <span style="font-weight: 500; color: var(--el-text-color-primary)">{{ row.title }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="meeting_date" label="班会时间" width="180">
@@ -78,7 +78,7 @@
         <el-table-column v-if="authStore.canViewAllData" prop="author_name" label="发布人" width="120" />
         <el-table-column prop="created_at" label="创建时间" width="180">
           <template #default="{ row }">
-            <span style="color: #86909C; font-size: 13px">{{ formatTime(row.created_at) }}</span>
+            <span style="color: var(--el-text-color-secondary); font-size: 13px">{{ formatTime(row.created_at) }}</span>
           </template>
         </el-table-column>
         
@@ -553,7 +553,7 @@ onUnmounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 /* 统计卡片 */
@@ -571,12 +571,12 @@ onUnmounted(() => {
   font-weight: 700; 
   text-align: center;
   font-family: 'DIN Alternate', -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .stat-label { 
   text-align: center; 
-  color: #86909C; 
+  color: var(--el-text-color-secondary);
   margin-top: 8px; 
   font-size: 14px;
 }
@@ -610,7 +610,7 @@ onUnmounted(() => {
 }
 .gallery-title {
   margin: 0 0 8px; 
-  color: #606266;
+  color: var(--el-text-color-regular);
   font-size: 14px;
 }
 .gallery-container {
@@ -640,13 +640,13 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  background: #F7F8FA;
+  background: var(--surface-soft);
   border-radius: 6px;
   margin-bottom: 8px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
 }
 .record-file-link {
-  color: #165DFF;
+  color: var(--el-color-primary);
   text-decoration: none;
   word-break: break-all;
 }
@@ -658,7 +658,7 @@ onUnmounted(() => {
 .pre-wrap-text {
   white-space: pre-wrap; 
   line-height: 1.6;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
 }
 .detail-record-section {
   margin-top: 24px;
@@ -667,15 +667,15 @@ onUnmounted(() => {
   margin-top: 0;
   margin-bottom: 12px;
   font-size: 15px;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 .record-text-box {
   white-space: pre-wrap; 
   line-height: 1.6; 
   padding: 16px; 
-  background: #F7F8FA; 
+  background: var(--surface-soft);
   border-radius: 6px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
 }
 .detail-image-section {
   margin-top: 24px;
@@ -701,14 +701,14 @@ onUnmounted(() => {
 }
 .m-title {
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-size: 15px;
   line-height: 1.4;
   padding-right: 8px;
 }
 .m-card-body {
   margin-bottom: 16px;
-  background-color: #F7F8FA;
+  background-color: var(--surface-soft);
   padding: 12px;
   border-radius: 6px;
 }
@@ -718,7 +718,7 @@ onUnmounted(() => {
   gap: 8px;
   margin-bottom: 8px;
   font-size: 13px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
 }
 .m-info-row:last-child {
   margin-bottom: 0;

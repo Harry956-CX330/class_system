@@ -444,7 +444,7 @@ onUnmounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 /* 数据统计卡片 */
@@ -473,14 +473,14 @@ onUnmounted(() => {
 
 .card-title {
   font-size: 14px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin-bottom: 8px;
 }
 
 .card-value {
   font-size: 28px;
   font-weight: 700;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-family: 'DIN Alternate', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
@@ -494,7 +494,7 @@ onUnmounted(() => {
   font-size: 24px;
 }
 
-.icon-primary { background: #E8F3FF; color: #165DFF; }
+.icon-primary { background: var(--el-color-primary-light-9); color: var(--el-color-primary); }
 .icon-success { background: #E8FFEA; color: #00B42A; }
 
 /* 主列表卡片 */
@@ -515,25 +515,25 @@ onUnmounted(() => {
 .list-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 /* 表格内元素美化 */
 .student-name {
   font-weight: 500;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
 }
 
 .activity-cell {
   display: flex;
   align-items: center;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-weight: 500;
 }
 
 .activity-icon {
   margin-right: 8px;
-  color: #165DFF;
+  color: var(--el-color-primary);
   font-size: 16px;
 }
 
@@ -541,13 +541,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px;
 }
 
 .time-text {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
@@ -578,7 +578,7 @@ onUnmounted(() => {
   align-items: center;
   width: 100%;
   height: 100%;
-  background: #F7F8FA;
+  background: var(--surface-soft);
   color: #C9CDD4;
   font-size: 20px;
 }
@@ -632,7 +632,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-size: 15px;
   line-height: 1.4;
   padding-right: 8px;
@@ -640,7 +640,7 @@ onUnmounted(() => {
 
 .m-card-body {
   margin-bottom: 12px;
-  background-color: #F7F8FA;
+  background-color: var(--surface-soft);
   padding: 12px;
   border-radius: 6px;
 }
@@ -662,12 +662,12 @@ onUnmounted(() => {
 }
 
 .m-info-row .label {
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   white-space: nowrap;
 }
 
 .m-info-row .date-text {
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 

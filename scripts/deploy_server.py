@@ -50,6 +50,9 @@ def main():
     parser.add_argument('--release', type=Path, required=True, help='Extracted release directory')
     parser.add_argument('--source', type=Path, required=True, help='Existing backend directory with data/data.db and static/uploads')
     parser.add_argument('--old-container', required=True)
+    parser.add_argument('--public-url', default='http://8.163.67.49:8000')
+    parser.add_argument('--backend-port', type=int, default=8000)
+    parser.add_argument('--candidate-port', type=int, default=18000)
     parser.add_argument('--deployment-root', type=Path, default=Path('/root/class-system-deployments'))
     options = parser.parse_args()
     source, release = options.source.resolve(), options.release.resolve()
@@ -95,8 +98,8 @@ def main():
         os.chown(path, 10001, 10001)
         path.chmod(0o600)
     environment = {
-        'TZ':'Asia/Shanghai', 'PUBLIC_BASE_URL':'http://8.163.67.49:8000',
-        'CORS_ORIGINS':'http://8.163.67.49:8000', 'DATA_DIR':'/app/data',
+        'TZ':'Asia/Shanghai', 'PUBLIC_BASE_URL':options.public_url,
+        'CORS_ORIGINS':options.public_url, 'DATA_DIR':'/app/data',
         'DATABASE_URL':'sqlite:////app/data/data.db', 'FRONTEND_DIST':'/app/static/dist',
         'TEMP_DIR':'/app/archive-tmp', 'SMTP_CONFIG_PATH':'/app/settings/smtp_config.json',
         'KDOCS_CONFIG_PATH':'/app/settings/kdocs_config.json', 'QQ_UPLOAD_ROOT':'/app/class-uploads',
@@ -104,6 +107,10 @@ def main():
         'MAX_CONCURRENT_ARCHIVES':'1','MAX_ARCHIVE_MB':'2048','MIN_FREE_DISK_MB':'256',
         'THREAD_TOKENS':'8','DOWNLOAD_KIB_PER_SECOND':'280',
     }
+    if options.public_url.startswith('https://'):
+        ipam=json.loads(run('docker','network','inspect',network,capture=True))[0]['IPAM']['Config']
+        gateway=ipam[0]['Gateway']
+        environment.update(HTTPS_REDIRECT_URL=options.public_url,TRUSTED_PROXY_HOSTS='127.0.0.1,'+gateway)
     # Preserve explicitly configured secrets and deployment allowlists without printing them.
     inherited = dict(value.split('=',1) for value in old['Config'].get('Env',[]) if '=' in value)
     for key in ('SECRET_KEY', 'SMTP_ALLOWED_HOSTS', 'QQ_ALLOWED_HOSTS'):
@@ -122,18 +129,18 @@ def main():
         command = ['docker','run','-d','--rm','--name',candidate,'--memory','512m','--cpus','1.5',
                    '--pids-limit','128','--cap-drop','ALL','--security-opt','no-new-privileges:true',
                    '--env-file',str(env_file),'-e','DATABASE_URL=sqlite:///file:/app/data/data.db?mode=ro&uri=true',
-                   '-p','127.0.0.1:18000:8000']
+                   '-p',f'127.0.0.1:{options.candidate_port}:8000']
         for volume in volumes:
             command += ['-v', volume+(':ro' if not volume.endswith('/app/archive-tmp') else '')]
         command.append(image)
         run(*command)
-        health = wait_ready(18000, revision)
+        health = wait_ready(options.candidate_port, revision)
         print('Candidate verified: '+json.dumps(health), flush=True)
     finally:
         subprocess.run(['docker','stop','-t','10',candidate], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     compose = {
         'services': {'app': {'image': image, 'container_name':'class-system',
-            'ports':['8000:8000'], 'cpus':1.5, 'mem_limit':'512m', 'pids_limit':128,
+            'ports':[f'127.0.0.1:{options.backend_port}:8000' if options.backend_port != 8000 else '8000:8000'], 'cpus':1.5, 'mem_limit':'512m', 'pids_limit':128,
             'env_file':[str(env_file)], 'volumes':volumes,
             'cap_drop':['ALL'], 'security_opt':['no-new-privileges:true'], 'restart':'unless-stopped',
             'logging':{'driver':'json-file','options':{'max-size':'5m','max-file':'3'}},
@@ -162,7 +169,7 @@ def main():
                     raise RuntimeError('Database backup integrity check failed')
         (deployment/'data-before.db').chmod(0o600)
         run('docker','compose','-p',project,'-f',str(compose_path),'up','-d','app')
-        health = wait_ready(8000, revision)
+        health = wait_ready(options.backend_port, revision)
         after = schema_digest(database)
         if after != before:
             raise RuntimeError('Unexpected database schema change')

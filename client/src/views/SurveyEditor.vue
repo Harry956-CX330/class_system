@@ -480,7 +480,7 @@ async function loadSurvey() {
   max-width: 820px;
   margin: 0 auto;
   padding: 16px 16px 60px;
-  background: #fff;
+  background: var(--surface);
   min-height: 100vh;
 }
 
@@ -501,7 +501,7 @@ async function loadSurvey() {
 
 /* 设置面板 */
 .settings-panel {
-  background: #F7F8FA;
+  background: var(--surface-soft);
   border-radius: 8px;
   margin-bottom: 16px;
   overflow: hidden;
@@ -522,7 +522,7 @@ async function loadSurvey() {
 
 .toggle-title {
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -539,7 +539,7 @@ async function loadSurvey() {
 
 .toggle-summary {
   margin-left: 12px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   font-size: 13px;
   /* 移动端文本过长防溢出 */
   white-space: nowrap;
@@ -555,7 +555,7 @@ async function loadSurvey() {
 .setting-tip {
   display: block;
   font-size: 12px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin-top: 4px;
   line-height: 1.5;
 }
@@ -571,7 +571,7 @@ async function loadSurvey() {
 
 .toolbar-hint {
   font-size: 13px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin-left: auto;
 }
 
@@ -590,7 +590,7 @@ async function loadSurvey() {
 
 .question-card {
   display: flex;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid #E5E6EB;
   border-radius: 8px;
   transition: all 0.2s;
@@ -613,7 +613,7 @@ async function loadSurvey() {
   align-items: center;
   justify-content: center;
   width: 36px;
-  background: #F7F8FA;
+  background: var(--surface-soft);
   cursor: grab;
   color: #C9CDD4;
   font-size: 18px;
@@ -641,7 +641,7 @@ async function loadSurvey() {
 .q-number {
   font-size: 18px;
   font-weight: 600;
-  color: #165DFF;
+  color: var(--el-color-primary);
   flex-shrink: 0;
   min-width: 28px;
 }
@@ -661,7 +661,7 @@ async function loadSurvey() {
 }
 
 .q-more-btn:hover {
-  color: #4E5969;
+  color: var(--el-text-color-regular);
 }
 
 .q-meta-row {
@@ -674,7 +674,7 @@ async function loadSurvey() {
 
 .q-type-hint {
   font-size: 12px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
 }
 
 .q-desc-row {
@@ -682,13 +682,13 @@ async function loadSurvey() {
 }
 
 .q-desc-input :deep(.el-input__wrapper) {
-  background: #F7F8FA;
+  background: var(--surface-soft);
   box-shadow: none;
 }
 
 /* 选项区 */
 .q-options {
-  background: #F7F8FA;
+  background: var(--surface-soft);
   border-radius: 6px;
   padding: 12px;
 }
@@ -703,7 +703,7 @@ async function loadSurvey() {
 .options-label {
   font-size: 13px;
   font-weight: 600;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
 }
 
 .options-required {
@@ -759,7 +759,7 @@ async function loadSurvey() {
 
 .rating-hint {
   font-size: 13px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
 }
 
 /* 预览面板 */
@@ -770,13 +770,13 @@ async function loadSurvey() {
 .preview-title {
   font-size: 18px;
   font-weight: 700;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   margin: 0 0 8px;
 }
 
 .preview-desc {
   font-size: 14px;
-  color: #4E5969;
+  color: var(--el-text-color-regular);
   margin-bottom: 20px;
   padding-bottom: 16px;
   border-bottom: 1px solid #E5E6EB;
@@ -789,13 +789,13 @@ async function loadSurvey() {
 .preview-q-num {
   font-size: 15px;
   font-weight: 600;
-  color: #1D2129;
+  color: var(--el-text-color-primary);
   margin-bottom: 10px;
 }
 
 .preview-q-desc {
   font-size: 13px;
-  color: #86909C;
+  color: var(--el-text-color-secondary);
   margin: 0 0 10px;
   line-height: 1.5;
   white-space: pre-wrap;
