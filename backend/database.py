@@ -1,4 +1,5 @@
 import os
+import asyncio
 from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from config import DATA_DIR
@@ -39,10 +40,16 @@ def validate_schema():
         raise RuntimeError("Database schema is incompatible; no changes were made. Missing: " + ", ".join(missing))
 
 
-def get_db():
-    with SessionLocal() as db:
-        try:
-            yield db
-        except Exception:
-            db.rollback()
-            raise
+_session_slots = asyncio.Semaphore(4)
+
+
+async def get_db():
+    # Wait before entering a sync auth/route worker. Otherwise all workers can
+    # block waiting for connections held by requests whose routes cannot run.
+    async with _session_slots:
+        with SessionLocal() as db:
+            try:
+                yield db
+            except Exception:
+                db.rollback()
+                raise

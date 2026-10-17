@@ -39,7 +39,7 @@ router = APIRouter(tags=["surveys"])
 
 
 @router.get("/api/surveys", response_model=list[SurveyRespSchema])
-def list_surveys(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def list_surveys(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     surveys = db.query(Survey).order_by(Survey.created_at.desc()).all()
     result = []
     for s in surveys:
@@ -70,7 +70,7 @@ def list_surveys(db: Session = Depends(get_db), current_user: User = Depends(get
 
 
 @router.post("/api/surveys", response_model=SurveyRespSchema)
-def create_survey(data: SurveyCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def create_survey(data: SurveyCreate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     deadline = datetime.strptime(data.deadline, "%Y-%m-%d %H:%M:%S") if data.deadline else None
     survey = Survey(title=data.title, description=data.description or "",
                     deadline=deadline, is_anonymous=data.is_anonymous,
@@ -95,7 +95,7 @@ def create_survey(data: SurveyCreate, db: Session = Depends(get_db), current_use
 
 
 @router.get("/api/surveys/{survey_id}", response_model=SurveyRespSchema)
-def get_survey(survey_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def get_survey(survey_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     survey = db.query(Survey).filter(Survey.id == survey_id).first()
     if not survey:
         raise HTTPException(status_code=404, detail="问卷不存在")
@@ -112,7 +112,7 @@ def get_survey(survey_id: int, db: Session = Depends(get_db), current_user: User
 
 
 @router.put("/api/surveys/{survey_id}", response_model=SurveyRespSchema)
-def update_survey(survey_id: int, data: SurveyCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def update_survey(survey_id: int, data: SurveyCreate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     with submission_lock:
         return _update_survey(survey_id, data, db, current_user)
 
@@ -151,7 +151,7 @@ def _update_survey(survey_id, data, db, current_user):
 
 
 @router.post("/api/surveys/{survey_id}/submit")
-def submit_survey(survey_id: int, data: SurveySubmitRequest, db: Session = Depends(get_db),
+def submit_survey(survey_id: int, data: SurveySubmitRequest, db: Session = Depends(get_db, scope="function"),
                   current_user: User = Depends(get_current_user)):
     # One worker: serialize check + replace + commit to avoid double-click races.
     with submission_lock:
@@ -176,7 +176,7 @@ def submit_survey(survey_id: int, data: SurveySubmitRequest, db: Session = Depen
 
 
 @router.get("/api/surveys/{survey_id}/results")
-def survey_results(survey_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def survey_results(survey_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     survey = db.query(Survey).filter(Survey.id == survey_id).first()
     if not survey: raise HTTPException(status_code=404, detail="问卷不存在")
 
@@ -235,7 +235,7 @@ def survey_results(survey_id: int, db: Session = Depends(get_db), current_user: 
 
 
 @router.get("/api/surveys/{survey_id}/student-results")
-def student_survey_results(survey_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def student_survey_results(survey_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     """学生查看投票结果（需show_results=true）"""
     survey = db.query(Survey).filter(Survey.id == survey_id).first()
     if not survey: raise HTTPException(status_code=404, detail="问卷不存在")
@@ -295,7 +295,7 @@ def student_survey_results(survey_id: int, db: Session = Depends(get_db), curren
 
 
 @router.delete("/api/surveys/{survey_id}")
-def delete_survey(survey_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def delete_survey(survey_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     survey = db.query(Survey).filter(Survey.id == survey_id).first()
     if not survey: raise HTTPException(status_code=404, detail="问卷不存在")
     db.delete(survey)
@@ -305,7 +305,7 @@ def delete_survey(survey_id: int, db: Session = Depends(get_db), current_user: U
 
 
 @router.get("/api/surveys/{survey_id}/unanswered", response_model=list[UserResponse])
-def get_unanswered_students(survey_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def get_unanswered_students(survey_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """获取尚未填写问卷的学生名单（仅管理员可见）"""
     survey = db.query(Survey).filter(Survey.id == survey_id).first()
     if not survey:
@@ -325,7 +325,7 @@ def get_unanswered_students(survey_id: int, db: Session = Depends(get_db), curre
 @router.get("/api/surveys/{survey_id}/export")
 def export_survey_results(survey_id: int, sort_by: str = Query("student_id"),
                           include_all: bool = Query(False), sort_order: str = Query("asc"),
-                          db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+                          db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """导出问卷结果为Excel：固定列 姓名+学号+各题，支持按学号或提交时间排序"""
     if not HAS_OPENPYXL:
         raise HTTPException(status_code=500, detail="服务器未安装openpyxl，无法导出Excel")
@@ -435,7 +435,7 @@ def export_survey_results(survey_id: int, sort_by: str = Query("student_id"),
 
 
 @router.post("/api/surveys/{survey_id}/send-email")
-def send_survey_email_reminder(survey_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def send_survey_email_reminder(survey_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """一键发送邮件提醒未填写问卷的学生"""
     survey = db.query(Survey).filter(Survey.id == survey_id).first()
     if not survey:

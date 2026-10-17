@@ -40,7 +40,7 @@ router = APIRouter(tags=["certificates"])
 async def upload_certificate(award_name: str = Form(...), student_id: int = Form(...),
                               award_level: str = Form("校级"), award_date: str = Form(None),
                               file: UploadFile = File(...),
-                              db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+                              db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user),
                               x_view_mode: str = Header(None)):
     can_manage_all = current_user.role == "admin" or (current_user.is_class_leader and x_view_mode == "admin")
     if not can_manage_all and current_user.id != student_id:
@@ -70,7 +70,7 @@ async def upload_certificate(award_name: str = Form(...), student_id: int = Form
 
 @router.get("/api/certificates", response_model=list[CertificateResponse])
 def list_certificates(student_id: int = Query(None), award_level: str = Query(None),
-                      academic_year: str = Query(None), db: Session = Depends(get_db),
+                      academic_year: str = Query(None), db: Session = Depends(get_db, scope="function"),
                       current_user: User = Depends(get_current_user),
                       x_view_mode: str = Header(None)):
     query = db.query(Certificate).options(joinedload(Certificate.student))
@@ -89,7 +89,7 @@ def list_certificates(student_id: int = Query(None), award_level: str = Query(No
 
 
 @router.get("/api/certificates/stats", response_model=CertificateStats)
-def certificate_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def certificate_stats(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     certs = db.query(Certificate).all()
     students = set()
     national = provincial = school = 0
@@ -110,7 +110,7 @@ def certificate_stats(db: Session = Depends(get_db), current_user: User = Depend
 @router.put("/api/certificates/{cert_id}", response_model=CertificateResponse)
 def update_certificate(cert_id: int, award_name: str = Form(...), award_level: str = Form("校级"),
                        award_date: str = Form(None), file: UploadFile = File(None),
-                       db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+                       db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user),
                        x_view_mode: str = Header(None)):
     cert = db.query(Certificate).filter(Certificate.id == cert_id).first()
     if not cert:
@@ -150,7 +150,7 @@ def update_certificate(cert_id: int, award_name: str = Form(...), award_level: s
 
 
 @router.delete("/api/certificates/{cert_id}")
-def delete_certificate(cert_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+def delete_certificate(cert_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user),
                        x_view_mode: str = Header(None)):
     cert = db.query(Certificate).filter(Certificate.id == cert_id).first()
     if not cert:
@@ -172,7 +172,7 @@ def delete_certificate(cert_id: int, db: Session = Depends(get_db), current_user
 @router.get("/api/certificates/export-excel")
 def export_certificates_excel(start_date: str = Query(None), end_date: str = Query(None),
                               student_id: int = Query(None), award_level: str = Query(None),
-                              db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+                              db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user),
                               x_view_mode: str = Header(None)):
     """导出奖状信息为Excel"""
     if not HAS_OPENPYXL:
@@ -224,7 +224,7 @@ def export_certificates_excel(start_date: str = Query(None), end_date: str = Que
 @router.get("/api/certificates/download-zip")
 def download_certificates_zip(start_date: str = Query(None), end_date: str = Query(None),
                               student_id: int = Query(None), award_level: str = Query(None),
-                              db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+                              db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user),
                               x_view_mode: str = Header(None)):
     """下载所有奖状图片为压缩包，命名：级别_奖状名称_获奖人"""
     query = db.query(Certificate)

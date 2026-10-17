@@ -62,7 +62,7 @@ def refresh_media_session(request: Request, user: User = Depends(get_current_use
     return result
 
 @router.get("/static/{filename:path}")
-def private_static(filename: str, request: Request, db: Session = Depends(get_db)):
+def private_static(filename: str, request: Request, db: Session = Depends(get_db, scope="function")):
     signed = request.scope.get("signed_media", False)
     user = None
     if not signed:

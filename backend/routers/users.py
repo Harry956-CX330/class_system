@@ -50,7 +50,7 @@ _DUMMY_HASH = get_password_hash("not-a-real-account-password")
 
 
 @router.post("/api/login", response_model=LoginResponse)
-def login(req: LoginRequest, response: Response, request: Request, db: Session = Depends(get_db)):
+def login(req: LoginRequest, response: Response, request: Request, db: Session = Depends(get_db, scope="function")):
     key = hmac.new(SECRET_KEY.encode(), req.username.strip().lower().encode(), hashlib.sha256).digest()
     if not login_accounts.allow(key, 8, 300):
         raise HTTPException(429, "该账号登录尝试过多，请五分钟后再试", headers={"Retry-After": "300"})
@@ -65,7 +65,7 @@ def login(req: LoginRequest, response: Response, request: Request, db: Session =
 
 
 @router.get("/api/users", response_model=list[UserResponse])
-def list_users(role: str = Query(None), db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def list_users(role: str = Query(None), db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     query = db.query(User)
     if role:
         query = query.filter(User.role == role)
@@ -74,13 +74,13 @@ def list_users(role: str = Query(None), db: Session = Depends(get_db), current_u
 
 
 @router.get("/api/users/profile", response_model=UserResponse)
-def get_my_profile(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_my_profile(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     return current_user
 
 
 
 @router.post("/api/users", response_model=UserResponse)
-def create_user(data: UserCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def create_user(data: UserCreate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     if (data.role == "admin" or data.is_class_leader) and current_user.role != "admin":
         raise HTTPException(403,"仅系统管理员可设置管理权限")
     existing = db.query(User).filter(User.username == data.username).first()
@@ -100,7 +100,7 @@ def create_user(data: UserCreate, db: Session = Depends(get_db), current_user: U
 
 
 @router.get("/api/class-committee", response_model=list[ClassCommitteeResponse])
-def get_class_committee(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_class_committee(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     """获取班委通讯录（仅显示已勾选展示的班委，按排序值升序）"""
     leaders = db.query(User).filter(User.is_class_leader == True, User.show_in_committee == True).order_by(User.sort_order, User.id).all()
     return [ClassCommitteeResponse(
@@ -116,7 +116,7 @@ def get_class_committee(db: Session = Depends(get_db), current_user: User = Depe
 
 
 @router.get("/api/class-committee/all", response_model=list[ClassCommitteeResponse])
-def get_all_class_leaders(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def get_all_class_leaders(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """获取所有班委（管理端用，不限制展示状态，按排序值升序）"""
     leaders = db.query(User).filter(User.is_class_leader == True).order_by(User.sort_order, User.id).all()
     return [ClassCommitteeResponse(
@@ -131,7 +131,7 @@ def get_all_class_leaders(db: Session = Depends(get_db), current_user: User = De
 
 
 @router.put("/api/class-committee/{user_id}", response_model=ClassCommitteeResponse)
-def update_class_committee(user_id: int, data: ClassCommitteeUpdate, db: Session = Depends(get_db),
+def update_class_committee(user_id: int, data: ClassCommitteeUpdate, db: Session = Depends(get_db, scope="function"),
                            current_user: User = Depends(require_admin)):
     """管理员更新班委职位信息（含排序）"""
     user = db.query(User).filter(User.id == user_id, User.is_class_leader == True).first()
@@ -156,7 +156,7 @@ def update_class_committee(user_id: int, data: ClassCommitteeUpdate, db: Session
 
 
 @router.get("/api/counselor", response_model=CounselorInfoResponse)
-def get_counselor_info(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_counselor_info(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     """获取辅导员信息"""
     info = db.query(CounselorInfo).first()
     if not info:
@@ -166,7 +166,7 @@ def get_counselor_info(db: Session = Depends(get_db), current_user: User = Depen
 
 
 @router.put("/api/counselor", response_model=CounselorInfoResponse)
-def update_counselor_info(data: CounselorInfoUpdate, db: Session = Depends(get_db),
+def update_counselor_info(data: CounselorInfoUpdate, db: Session = Depends(get_db, scope="function"),
                           current_user: User = Depends(require_admin)):
     """更新辅导员信息"""
     info = db.query(CounselorInfo).first()
@@ -184,7 +184,7 @@ def update_counselor_info(data: CounselorInfoUpdate, db: Session = Depends(get_d
 
 
 @router.post("/api/users/import")
-def import_users(items: list[UserImportItem], db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def import_users(items: list[UserImportItem], db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     created = 0
     errors = []
     for item in items:
@@ -205,7 +205,7 @@ def import_users(items: list[UserImportItem], db: Session = Depends(get_db), cur
 
 
 @router.post("/api/users/import-file")
-async def import_users_file(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+async def import_users_file(file: UploadFile = File(...), db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     created = 0
     errors = []
     content = await read_small_upload(file, MAX_IMPORT_BYTES)
@@ -287,7 +287,7 @@ def download_user_template():
 
 
 @router.put("/api/users/me")
-def update_self(data: UserSelfUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def update_self(data: UserSelfUpdate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     if data.real_name is not None: current_user.real_name = data.real_name
     if data.political_status is not None: current_user.political_status = data.political_status
     if data.email is not None: current_user.email = data.email
@@ -299,7 +299,7 @@ def update_self(data: UserSelfUpdate, db: Session = Depends(get_db), current_use
 
 
 @router.put("/api/users/{user_id}", response_model=UserResponse)
-def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user: raise HTTPException(status_code=404, detail="用户不存在")
     if data.real_name is not None: user.real_name = data.real_name
@@ -323,7 +323,7 @@ def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db), c
 
 
 @router.delete("/api/users/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def delete_user(user_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user: raise HTTPException(status_code=404, detail="用户不存在")
     if user.role == "admin": raise HTTPException(status_code=400, detail="不能删除管理员账号")
@@ -334,7 +334,7 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
 
 
 @router.put("/api/users/me/password")
-def change_password(data: PasswordChange, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def change_password(data: PasswordChange, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     if not verify_password(data.old_password, current_user.hashed_password):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="旧密码错误")
     if len(data.new_password) < 8 or len(data.new_password.encode("utf-8")) > 72:

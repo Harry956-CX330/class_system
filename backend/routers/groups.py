@@ -34,7 +34,7 @@ router = APIRouter(tags=["groups"])
 
 
 @router.post("/api/group-projects", response_model=GroupProjectResponse)
-def create_group_project(req: GroupProjectCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def create_group_project(req: GroupProjectCreate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     capacities_json = json.dumps(req.group_capacities) if req.group_capacities else None
     names_json = json.dumps(req.group_names, ensure_ascii=False) if req.group_names else None
     deadline = datetime.strptime(req.deadline, "%Y-%m-%d %H:%M:%S") if req.deadline else None
@@ -53,7 +53,7 @@ def create_group_project(req: GroupProjectCreate, db: Session = Depends(get_db),
 
 
 @router.get("/api/group-projects", response_model=list[GroupProjectResponse])
-def list_group_projects(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def list_group_projects(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     projects = db.query(GroupProject).order_by(GroupProject.created_at.desc()).all()
     for p in projects:
         p.total_assigned = db.query(GroupAssignment).filter(GroupAssignment.project_id == p.id).count()
@@ -64,7 +64,7 @@ def list_group_projects(db: Session = Depends(get_db), current_user: User = Depe
 
 
 @router.get("/api/group-projects/{project_id}", response_model=GroupProjectDetailResponse)
-def get_group_project(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_group_project(project_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     project = db.query(GroupProject).filter(GroupProject.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="分组项目不存在")
@@ -137,7 +137,7 @@ def get_group_project(project_id: int, db: Session = Depends(get_db), current_us
 
 
 @router.put("/api/group-projects/{project_id}")
-def update_group_project(project_id: int, req: GroupProjectUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def update_group_project(project_id: int, req: GroupProjectUpdate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """更新分组项目（支持修改自定义组名）"""
     project = db.query(GroupProject).filter(GroupProject.id == project_id).first()
     if not project:
@@ -150,7 +150,7 @@ def update_group_project(project_id: int, req: GroupProjectUpdate, db: Session =
 
 
 @router.post("/api/group-projects/{project_id}/join", response_model=GroupAssignmentResponse)
-def join_group(project_id: int, req: GroupJoinRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def join_group(project_id: int, req: GroupJoinRequest, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     project = db.query(GroupProject).filter(GroupProject.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="分组项目不存在")
@@ -216,7 +216,7 @@ def join_group(project_id: int, req: GroupJoinRequest, db: Session = Depends(get
 
 
 @router.delete("/api/group-projects/{project_id}/leave")
-def leave_group(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def leave_group(project_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     assignment = db.query(GroupAssignment).filter(
         GroupAssignment.project_id == project_id,
         GroupAssignment.student_id == current_user.id
@@ -238,7 +238,7 @@ def leave_group(project_id: int, db: Session = Depends(get_db), current_user: Us
 
 
 @router.delete("/api/group-projects/{project_id}")
-def delete_group_project(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def delete_group_project(project_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     project = db.query(GroupProject).filter(GroupProject.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="分组项目不存在")
@@ -249,7 +249,7 @@ def delete_group_project(project_id: int, db: Session = Depends(get_db), current
 
 
 @router.get("/api/group-projects/{project_id}/export")
-def export_group_excel(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def export_group_excel(project_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     project = db.query(GroupProject).filter(GroupProject.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="分组项目不存在")
@@ -323,7 +323,7 @@ def export_group_excel(project_id: int, db: Session = Depends(get_db), current_u
 
 
 @router.get("/api/group-projects/{project_id}/unassigned", response_model=list[UserResponse])
-def get_unassigned_students(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def get_unassigned_students(project_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """获取未加入分组的学生名单（仅管理员）"""
     project = db.query(GroupProject).filter(GroupProject.id == project_id).first()
     if not project:

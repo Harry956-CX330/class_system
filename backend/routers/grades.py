@@ -38,7 +38,7 @@ router = APIRouter(tags=["grades"])
 
 @router.get("/api/grades", response_model=list[GradeResponse])
 def list_grades(student_id: int = Query(None), semester: str = Query(None), academic_year: str = Query(None),
-                db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+                db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user),
                 x_view_mode: str = Header(None)):
     query = db.query(Grade)
     can_view_all = current_user.role == "admin" or (current_user.is_class_leader and x_view_mode == "admin")
@@ -57,7 +57,7 @@ def list_grades(student_id: int = Query(None), semester: str = Query(None), acad
 
 
 @router.post("/api/grades", response_model=GradeResponse)
-def create_grade(data: GradeCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def create_grade(data: GradeCreate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     grade = Grade(student_id=data.student_id, score=data.score,
                   gpa=data.gpa, semester=data.semester, academic_year=data.academic_year,
                   class_rank=data.class_rank, total_students=data.total_students)
@@ -75,7 +75,7 @@ def create_grade(data: GradeCreate, db: Session = Depends(get_db), current_user:
 
 
 @router.put("/api/grades/{grade_id}", response_model=GradeResponse)
-def update_grade(grade_id: int, data: GradeUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def update_grade(grade_id: int, data: GradeUpdate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     grade = db.query(Grade).filter(Grade.id == grade_id).first()
     if not grade: raise HTTPException(status_code=404, detail="成绩不存在")
     if data.student_id is not None: grade.student_id = data.student_id
@@ -98,7 +98,7 @@ def update_grade(grade_id: int, data: GradeUpdate, db: Session = Depends(get_db)
 
 
 @router.delete("/api/grades/{grade_id}")
-def delete_grade(grade_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def delete_grade(grade_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     grade = db.query(Grade).filter(Grade.id == grade_id).first()
     if not grade: raise HTTPException(status_code=404, detail="成绩不存在")
     db.delete(grade)
@@ -108,7 +108,7 @@ def delete_grade(grade_id: int, db: Session = Depends(get_db), current_user: Use
 
 
 @router.post("/api/grades/import-file")
-async def import_grades_file(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+async def import_grades_file(file: UploadFile = File(...), db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     created, errors = 0, []
     content = await read_small_upload(file, MAX_IMPORT_BYTES)
     filename = file.filename or ""
@@ -165,7 +165,7 @@ def download_grade_template():
 
 @router.post("/api/grades/change-request", response_model=GradeChangeRequestResponse)
 def create_grade_change_request(data: GradeChangeRequestCreate,
-                                 db: Session = Depends(get_db),
+                                 db: Session = Depends(get_db, scope="function"),
                                  current_user: User = Depends(get_current_user)):
     """学生提交成绩修改申请"""
     req = GradeChangeRequest(
@@ -188,7 +188,7 @@ def create_grade_change_request(data: GradeChangeRequestCreate,
 
 @router.get("/api/grades/change-requests", response_model=list[GradeChangeRequestResponse])
 def list_grade_change_requests(status: str = Query(None),
-                                db: Session = Depends(get_db),
+                                db: Session = Depends(get_db, scope="function"),
                                 current_user: User = Depends(get_current_user),
                                 x_view_mode: str = Header(None)):
     """查看成绩修改申请：管理端看全部，学生端看自己的"""
@@ -205,7 +205,7 @@ def list_grade_change_requests(status: str = Query(None),
 
 @router.put("/api/grades/change-requests/{req_id}/approve")
 def approve_grade_change_request(req_id: int, data: GradeChangeRequestProcess = None,
-                                  db: Session = Depends(get_db),
+                                  db: Session = Depends(get_db, scope="function"),
                                   current_user: User = Depends(require_admin)):
     """管理员审批通过：应用修改到实际成绩"""
     req = db.query(GradeChangeRequest).filter(GradeChangeRequest.id == req_id).first()
@@ -248,7 +248,7 @@ def approve_grade_change_request(req_id: int, data: GradeChangeRequestProcess = 
 
 @router.put("/api/grades/change-requests/{req_id}/reject")
 def reject_grade_change_request(req_id: int, data: GradeChangeRequestProcess = None,
-                                 db: Session = Depends(get_db),
+                                 db: Session = Depends(get_db, scope="function"),
                                  current_user: User = Depends(require_admin)):
     """管理员驳回申请"""
     req = db.query(GradeChangeRequest).filter(GradeChangeRequest.id == req_id).first()

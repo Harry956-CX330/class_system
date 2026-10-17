@@ -17,7 +17,7 @@ router = APIRouter(tags=["dashboard"])
 
 
 @router.get("/api/dashboard/political-stats")
-def political_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def political_stats(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     """班级政治面貌统计"""
     students = db.query(User).filter(User.role == "student").all()
     stats = {
@@ -45,7 +45,7 @@ def political_stats(db: Session = Depends(get_db), current_user: User = Depends(
 
 
 @router.get("/api/dashboard/usage-stats")
-def usage_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def usage_stats(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     """系统累计使用量统计"""
     from sqlalchemy import func
     stat = db.query(SiteStat).first()
@@ -63,7 +63,7 @@ def usage_stats(db: Session = Depends(get_db), current_user: User = Depends(get_
 
 
 @router.post("/api/dashboard/ping")
-def ping_dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def ping_dashboard(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     """标记一次页面点击，累加PV"""
     stat = db.query(SiteStat).first()
     if not stat:

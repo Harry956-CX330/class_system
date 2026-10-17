@@ -53,7 +53,7 @@ def update_smtp_config(data: SmtpConfigCreate, current_user: User = Depends(requ
 
 
 @router.post("/api/smtp-config/test-email")
-def test_smtp_email(payload: dict, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def test_smtp_email(payload: dict, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """测试 SMTP 邮件发送"""
     test_email = payload.get("email", "").strip()
     if not test_email or "@" not in test_email:
@@ -77,7 +77,7 @@ def get_email_history(
     page_size: int = Query(20, ge=1, le=100),
     status_filter: str = Query(None, alias="status"),
     send_type: str = Query(None),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
     current_user: User = Depends(require_admin)
 ):
     """查看邮件发送历史"""
@@ -111,7 +111,7 @@ def get_email_history(
 
 
 @router.post("/api/email-history/resend")
-def resend_failed_emails(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def resend_failed_emails(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """一键重发所有发送失败的邮件"""
     failed_records = db.query(EmailHistory).filter(EmailHistory.status == "failed").all()
     if not failed_records:
@@ -142,7 +142,7 @@ def resend_failed_emails(db: Session = Depends(get_db), current_user: User = Dep
 
 
 @router.post("/api/notices/{notice_id}/send-email")
-def send_notice_email(notice_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def send_notice_email(notice_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """一键发送邮件通知给全班学生"""
     notice = db.query(Notice).filter(Notice.id == notice_id).first()
     if not notice:

@@ -53,7 +53,7 @@ def _leader_name(db: Session, user_id) -> str:
 
 @router.get("/api/class-meetings", response_model=list[ClassMeetingResponse])
 def list_class_meetings(status: str = Query(None), from_date: str = Query(None), to_date: str = Query(None),
-                        db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+                        db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     # 时间超过班会召开时间自动标记为已举行
     now = beijing_now()
     expired = db.query(ClassMeeting).filter(
@@ -103,7 +103,7 @@ def list_class_meetings(status: str = Query(None), from_date: str = Query(None),
 
 
 @router.post("/api/class-meetings", response_model=ClassMeetingResponse)
-def create_class_meeting(data: ClassMeetingCreate, db: Session = Depends(get_db),
+def create_class_meeting(data: ClassMeetingCreate, db: Session = Depends(get_db, scope="function"),
                          current_user: User = Depends(require_admin)):
     meeting = ClassMeeting(
         title=data.title,
@@ -134,7 +134,7 @@ def create_class_meeting(data: ClassMeetingCreate, db: Session = Depends(get_db)
 
 
 @router.put("/api/class-meetings/{meeting_id}", response_model=ClassMeetingResponse)
-def update_class_meeting(meeting_id: int, data: ClassMeetingUpdate, db: Session = Depends(get_db),
+def update_class_meeting(meeting_id: int, data: ClassMeetingUpdate, db: Session = Depends(get_db, scope="function"),
                          current_user: User = Depends(require_admin)):
     meeting = db.query(ClassMeeting).filter(ClassMeeting.id == meeting_id).first()
     if not meeting: raise HTTPException(status_code=404, detail="班会不存在")
@@ -176,7 +176,7 @@ def update_class_meeting(meeting_id: int, data: ClassMeetingUpdate, db: Session 
 
 
 @router.delete("/api/class-meetings/{meeting_id}")
-def delete_class_meeting(meeting_id: int, db: Session = Depends(get_db),
+def delete_class_meeting(meeting_id: int, db: Session = Depends(get_db, scope="function"),
                          current_user: User = Depends(require_admin)):
     meeting = db.query(ClassMeeting).filter(ClassMeeting.id == meeting_id).first()
     if not meeting:
@@ -199,7 +199,7 @@ def delete_class_meeting(meeting_id: int, db: Session = Depends(get_db),
 
 
 @router.post("/api/class-meetings/batch-delete")
-def batch_delete_class_meetings(data: BatchDeleteRequest, db: Session = Depends(get_db),
+def batch_delete_class_meetings(data: BatchDeleteRequest, db: Session = Depends(get_db, scope="function"),
                                 current_user: User = Depends(require_admin)):
     from_dt = datetime.strptime(data.from_date + " 00:00:00", "%Y-%m-%d %H:%M:%S")
     to_dt = datetime.strptime(data.to_date + " 23:59:59", "%Y-%m-%d %H:%M:%S")
@@ -227,7 +227,7 @@ def batch_delete_class_meetings(data: BatchDeleteRequest, db: Session = Depends(
 
 
 @router.put("/api/class-meetings/{meeting_id}/record")
-def update_meeting_record(meeting_id: int, data: MeetingRecordUpdate, db: Session = Depends(get_db),
+def update_meeting_record(meeting_id: int, data: MeetingRecordUpdate, db: Session = Depends(get_db, scope="function"),
                           current_user: User = Depends(require_admin)):
     meeting = db.query(ClassMeeting).filter(ClassMeeting.id == meeting_id).first()
     if not meeting:
@@ -249,7 +249,7 @@ def update_meeting_record(meeting_id: int, data: MeetingRecordUpdate, db: Sessio
 
 @router.post("/api/class-meetings/{meeting_id}/upload-images")
 async def upload_meeting_images(meeting_id: int, files: list[UploadFile] = File(...),
-                                 db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+                                 db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     meeting = db.query(ClassMeeting).filter(ClassMeeting.id == meeting_id).first()
     if not meeting:
         raise HTTPException(status_code=404, detail="班会不存在")
@@ -268,7 +268,7 @@ async def upload_meeting_images(meeting_id: int, files: list[UploadFile] = File(
 
 @router.post("/api/class-meetings/{meeting_id}/upload-file")
 async def upload_meeting_file(meeting_id: int, file: UploadFile = File(...),
-                              db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+                              db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """上传班会记录文件（仅支持文档文件）"""
     meeting = db.query(ClassMeeting).filter(ClassMeeting.id == meeting_id).first()
     if not meeting:
@@ -296,7 +296,7 @@ async def upload_meeting_file(meeting_id: int, file: UploadFile = File(...),
 
 
 @router.post("/api/class-meetings/{meeting_id}/send-email")
-def send_meeting_record_email(meeting_id: int, data: dict, db: Session = Depends(get_db),
+def send_meeting_record_email(meeting_id: int, data: dict, db: Session = Depends(get_db, scope="function"),
                               current_user: User = Depends(require_admin)):
     """一键发送班会记录文件到指定邮箱（标题为班会标题，附件为记录文件）"""
     meeting = db.query(ClassMeeting).filter(ClassMeeting.id == meeting_id).first()

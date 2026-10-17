@@ -41,7 +41,7 @@ def _make_sp_response(sp) -> SocialPracticeResponse:
 
 
 @router.get("/api/social-practices", response_model=list[SocialPracticeResponse])
-def list_social_practices(student_id: int = Query(None), db: Session = Depends(get_db),
+def list_social_practices(student_id: int = Query(None), db: Session = Depends(get_db, scope="function"),
                           current_user: User = Depends(get_current_user),
                           x_view_mode: str = Header(None)):
     query = db.query(SocialPractice)
@@ -53,7 +53,7 @@ def list_social_practices(student_id: int = Query(None), db: Session = Depends(g
 
 
 @router.post("/api/social-practices", response_model=SocialPracticeResponse)
-def create_social_practice(data: SocialPracticeCreate, db: Session = Depends(get_db),
+def create_social_practice(data: SocialPracticeCreate, db: Session = Depends(get_db, scope="function"),
                            current_user: User = Depends(get_current_user),
                            x_view_mode: str = Header(None)):
     can_manage_all = current_user.role == "admin" or (current_user.is_class_leader and x_view_mode == "admin")
@@ -71,7 +71,7 @@ def create_social_practice(data: SocialPracticeCreate, db: Session = Depends(get
 
 
 @router.put("/api/social-practices/{sp_id}", response_model=SocialPracticeResponse)
-def update_social_practice(sp_id: int, data: SocialPracticeUpdate, db: Session = Depends(get_db),
+def update_social_practice(sp_id: int, data: SocialPracticeUpdate, db: Session = Depends(get_db, scope="function"),
                            current_user: User = Depends(get_current_user),
                            x_view_mode: str = Header(None)):
     sp = db.query(SocialPractice).filter(SocialPractice.id == sp_id).first()
@@ -91,7 +91,7 @@ def update_social_practice(sp_id: int, data: SocialPracticeUpdate, db: Session =
 
 
 @router.delete("/api/social-practices/{sp_id}")
-def delete_social_practice(sp_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+def delete_social_practice(sp_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user),
                            x_view_mode: str = Header(None)):
     sp = db.query(SocialPractice).filter(SocialPractice.id == sp_id).first()
     if not sp: raise HTTPException(status_code=404, detail="记录不存在")
@@ -106,7 +106,7 @@ def delete_social_practice(sp_id: int, db: Session = Depends(get_db), current_us
 
 @router.post("/api/social-practices/upload-certificate")
 async def upload_sp_certificate(sp_id: int = Form(...), file: UploadFile = File(...),
-                                 db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+                                 db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     sp = db.query(SocialPractice).filter(SocialPractice.id == sp_id).first()
     if not sp: raise HTTPException(status_code=404, detail="记录不存在")
     ext = os.path.splitext(file.filename)[1].lower()
@@ -121,7 +121,7 @@ async def upload_sp_certificate(sp_id: int = Form(...), file: UploadFile = File(
 
 
 @router.get("/api/social-practices/stats")
-def social_practice_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def social_practice_stats(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     all_sp = db.query(SocialPractice).all()
     students = set()
     total_hours = 0

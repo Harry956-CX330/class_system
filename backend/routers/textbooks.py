@@ -63,7 +63,7 @@ def check_deadline(db: Session):
 
 
 @router.get("/api/textbooks/config", response_model=TextbookConfigResponse)
-def get_config(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_config(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     """获取教材订购配置"""
     cfg = db.query(TextbookConfig).first()
     if not cfg:
@@ -76,7 +76,7 @@ def get_config(db: Session = Depends(get_db), current_user: User = Depends(get_c
 
 
 @router.put("/api/textbooks/config", response_model=TextbookConfigResponse)
-def update_config(data: TextbookConfigCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def update_config(data: TextbookConfigCreate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """管理员设置教材订购配置"""
     cfg = db.query(TextbookConfig).first()
     if not cfg:
@@ -95,14 +95,14 @@ def update_config(data: TextbookConfigCreate, db: Session = Depends(get_db), cur
 
 
 @router.get("/api/textbooks", response_model=list[TextbookResponse])
-def list_textbooks(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def list_textbooks(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     """列出所有教材"""
     return db.query(Textbook).order_by(Textbook.created_at.desc()).all()
 
 
 
 @router.post("/api/textbooks", response_model=TextbookResponse)
-def create_textbook(data: TextbookCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def create_textbook(data: TextbookCreate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """管理员新增教材"""
     t = Textbook(**data.model_dump())
     db.add(t)
@@ -113,7 +113,7 @@ def create_textbook(data: TextbookCreate, db: Session = Depends(get_db), current
 
 
 @router.put("/api/textbooks/{textbook_id}", response_model=TextbookResponse)
-def update_textbook(textbook_id: int, data: TextbookCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def update_textbook(textbook_id: int, data: TextbookCreate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """管理员修改教材"""
     t = db.query(Textbook).filter(Textbook.id == textbook_id).first()
     if not t: raise HTTPException(status_code=404, detail="教材不存在")
@@ -126,7 +126,7 @@ def update_textbook(textbook_id: int, data: TextbookCreate, db: Session = Depend
 
 
 @router.get("/api/textbooks/my-orders")
-def get_my_orders(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_my_orders(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     """学生查看自己的所有订购"""
     orders = db.query(TextbookOrder).filter(
         TextbookOrder.student_id == current_user.id
@@ -161,7 +161,7 @@ def get_my_orders(db: Session = Depends(get_db), current_user: User = Depends(ge
 
 
 @router.delete("/api/textbooks/my-orders/{order_id}")
-def cancel_my_order(order_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def cancel_my_order(order_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     """学生取消自己的某条订购"""
     check_deadline(db)
     order = db.query(TextbookOrder).filter(
@@ -177,7 +177,7 @@ def cancel_my_order(order_id: int, db: Session = Depends(get_db), current_user: 
 
 
 @router.post("/api/textbooks/order-batch")
-def order_textbooks(data: TextbookBatchOrderRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def order_textbooks(data: TextbookBatchOrderRequest, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     """学生批量订购教材（重新订购时使用）"""
     check_deadline(db)
     if not data.textbook_ids:
@@ -199,7 +199,7 @@ def order_textbooks(data: TextbookBatchOrderRequest, db: Session = Depends(get_d
 
 
 @router.delete("/api/textbooks/{textbook_id}")
-def delete_textbook(textbook_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def delete_textbook(textbook_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """管理员删除教材（同时删除关联订单）"""
     t = db.query(Textbook).filter(Textbook.id == textbook_id).first()
     if not t: raise HTTPException(status_code=404, detail="教材不存在")
@@ -211,7 +211,7 @@ def delete_textbook(textbook_id: int, db: Session = Depends(get_db), current_use
 
 
 @router.get("/api/textbooks/orders", response_model=list[TextbookOrderResponse])
-def list_all_orders(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def list_all_orders(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """管理员查看全部订购记录"""
     orders = db.query(TextbookOrder).order_by(TextbookOrder.created_at.desc()).all()
     return [TextbookOrderResponse(
@@ -233,7 +233,7 @@ def list_all_orders(db: Session = Depends(get_db), current_user: User = Depends(
 
 
 @router.get("/api/textbooks/unordered")
-def get_unordered_students(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def get_unordered_students(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """获取未订购教材的学生名单（含已确认无需订购）"""
     all_students = db.query(User).filter(User.role == "student").order_by(User.sort_order, User.student_id).all()
     ordered_ids = set(r[0] for r in db.query(TextbookOrder.student_id).distinct().all())
@@ -256,7 +256,7 @@ def get_unordered_students(db: Session = Depends(get_db), current_user: User = D
 
 
 @router.post("/api/textbooks/confirm-no-order")
-def confirm_no_order(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def confirm_no_order(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     """学生确认无需订购教材"""
     check_deadline(db)
     # 清除已有订单
@@ -271,7 +271,7 @@ def confirm_no_order(db: Session = Depends(get_db), current_user: User = Depends
 
 
 @router.delete("/api/textbooks/confirm-no-order")
-def cancel_no_order(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def cancel_no_order(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     """学生取消无需订购确认"""
     check_deadline(db)
     db.query(NoOrderConfirm).filter(NoOrderConfirm.student_id == current_user.id).delete()
@@ -281,7 +281,7 @@ def cancel_no_order(db: Session = Depends(get_db), current_user: User = Depends(
 
 
 @router.get("/api/textbooks/orders/grouped")
-def list_orders_grouped(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def list_orders_grouped(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """管理员查看订购记录（按学生分组）"""
     orders = db.query(TextbookOrder).order_by(TextbookOrder.student_id, TextbookOrder.created_at).all()
     grouped: dict[int, dict] = {}
@@ -325,7 +325,7 @@ def list_orders_grouped(db: Session = Depends(get_db), current_user: User = Depe
 
 
 @router.post("/api/textbooks/qq-remind-unordered")
-def qq_remind_unordered(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def qq_remind_unordered(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """QQ私聊提醒所有未订购学生"""
     cfg = _get_qq_config(db)
     if not cfg: raise HTTPException(status_code=400, detail="QQ提醒未启用或未配置")
@@ -370,7 +370,7 @@ def qq_remind_unordered(db: Session = Depends(get_db), current_user: User = Depe
 
 
 @router.post("/api/textbooks/qq-remind-unordered-email")
-def qq_email_remind_unordered(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def qq_email_remind_unordered(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """QQ邮件提醒所有未订购学生"""
     all_students = db.query(User).filter(User.role == "student").all()
     ordered_ids = set(r[0] for r in db.query(TextbookOrder.student_id).distinct().all())
@@ -402,7 +402,7 @@ def qq_email_remind_unordered(db: Session = Depends(get_db), current_user: User 
 
 
 
-def export_orders_excel(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def export_orders_excel(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """导出订购明细 Excel"""
     if not HAS_OPENPYXL:
         raise HTTPException(status_code=500, detail="服务器未安装 openpyxl")
@@ -446,7 +446,7 @@ def export_orders_excel(db: Session = Depends(get_db), current_user: User = Depe
 
 
 @router.post("/api/textbooks/orders/send-emails")
-def send_order_emails(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def send_order_emails(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """管理员一键发送订购明细到各学生邮箱"""
     orders = db.query(TextbookOrder).order_by(TextbookOrder.student_id).all()
     student_orders: dict[int, dict] = {}
@@ -516,7 +516,7 @@ def send_order_emails(db: Session = Depends(get_db), current_user: User = Depend
 
 
 @router.delete("/api/textbooks/orders/{order_id}")
-def admin_delete_order(order_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def admin_delete_order(order_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """管理员删除某条订购记录"""
     order = db.query(TextbookOrder).filter(TextbookOrder.id == order_id).first()
     if not order: raise HTTPException(status_code=404, detail="订购记录不存在")
@@ -527,7 +527,7 @@ def admin_delete_order(order_id: int, db: Session = Depends(get_db), current_use
 
 
 @router.get("/api/textbooks/stats")
-def get_textbook_stats(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def get_textbook_stats(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """获取每本教材的订购数量统计"""
     textbooks = db.query(Textbook).all()
     result = []
@@ -588,7 +588,7 @@ def _get_student_dorm_data(db: Session):
 
 
 @router.get("/api/textbooks/orders/export-by-dorm-excel")
-def export_orders_by_dorm_excel(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def export_orders_by_dorm_excel(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """按宿舍导出 Excel"""
     if not HAS_OPENPYXL:
         raise HTTPException(status_code=500, detail="服务器未安装 openpyxl")
@@ -653,7 +653,7 @@ def export_orders_by_dorm_excel(db: Session = Depends(get_db), current_user: Use
 
 
 @router.get("/api/textbooks/orders/export-by-student-id")
-def export_orders_by_student_id(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def export_orders_by_student_id(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """按学号导出 Excel"""
     if not HAS_OPENPYXL:
         raise HTTPException(status_code=500, detail="服务器未安装 openpyxl")
@@ -696,7 +696,7 @@ def export_orders_by_student_id(db: Session = Depends(get_db), current_user: Use
 
 
 @router.get("/api/textbooks/orders/export-by-dorm-word")
-def export_orders_by_dorm_word(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def export_orders_by_dorm_word(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """按宿舍导出 Word"""
     try:
         from docx import Document
@@ -765,7 +765,7 @@ def export_orders_by_dorm_word(db: Session = Depends(get_db), current_user: User
 
 
 @router.post("/api/textbooks/orders/send-dorm-emails")
-def send_dorm_order_emails(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def send_dorm_order_emails(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """一键发送宿舍订购明细到各宿舍长QQ邮箱"""
     students = _get_student_dorm_data(db)
     dorms = _get_dorm_grouped_data(db)

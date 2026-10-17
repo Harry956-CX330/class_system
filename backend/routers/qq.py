@@ -33,7 +33,7 @@ router = APIRouter(tags=["qq"])
 
 
 @router.get("/api/qq-config", response_model=QQConfigResponse)
-def get_qq_config(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def get_qq_config(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     cfg = db.query(QQConfig).first()
     if not cfg:
         cfg = QQConfig(api_url="", group_id="", enabled=0)
@@ -45,7 +45,7 @@ def get_qq_config(db: Session = Depends(get_db), current_user: User = Depends(re
 
 
 @router.put("/api/qq-config", response_model=QQConfigResponse)
-def update_qq_config(data: QQConfigCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def update_qq_config(data: QQConfigCreate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     cfg = db.query(QQConfig).first()
     if not cfg:
         cfg = QQConfig()
@@ -60,7 +60,7 @@ def update_qq_config(data: QQConfigCreate, db: Session = Depends(get_db), curren
 
 
 @router.post("/api/qq/file-task/{task_id}/notify")
-def qq_notify_file_task(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def qq_notify_file_task(task_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """群聊通知：新布置的文件任务"""
     cfg = _get_qq_config(db)
     if not cfg: raise HTTPException(status_code=400, detail="QQ提醒未启用或未配置")
@@ -85,7 +85,7 @@ def qq_notify_file_task(task_id: int, db: Session = Depends(get_db), current_use
 
 
 @router.post("/api/qq/file-task/{task_id}/remind")
-def qq_remind_file_task(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def qq_remind_file_task(task_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """私聊提醒：未提交文件任务的学生"""
     cfg = _get_qq_config(db)
     if not cfg: raise HTTPException(status_code=400, detail="QQ提醒未启用或未配置")
@@ -122,7 +122,7 @@ def qq_remind_file_task(task_id: int, db: Session = Depends(get_db), current_use
 
 
 @router.post("/api/qq/survey/{survey_id}/notify")
-def qq_notify_survey(survey_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def qq_notify_survey(survey_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """群聊通知：新发布的调查问卷"""
     cfg = _get_qq_config(db)
     if not cfg: raise HTTPException(status_code=400, detail="QQ提醒未启用或未配置")
@@ -147,7 +147,7 @@ def qq_notify_survey(survey_id: int, db: Session = Depends(get_db), current_user
 
 
 @router.post("/api/qq/survey/{survey_id}/remind")
-def qq_remind_survey(survey_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def qq_remind_survey(survey_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """私聊提醒：未填写问卷的学生"""
     cfg = _get_qq_config(db)
     if not cfg: raise HTTPException(status_code=400, detail="QQ提醒未启用或未配置")
@@ -184,7 +184,7 @@ def qq_remind_survey(survey_id: int, db: Session = Depends(get_db), current_user
 
 
 @router.post("/api/qq/notice/{notice_id}/notify")
-def qq_notify_notice(notice_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def qq_notify_notice(notice_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """群聊通知：新发布的公告"""
     cfg = _get_qq_config(db)
     if not cfg: raise HTTPException(status_code=400, detail="QQ提醒未启用或未配置")
@@ -207,7 +207,7 @@ def qq_notify_notice(notice_id: int, db: Session = Depends(get_db), current_user
 
 
 @router.post("/api/qq/group-project/{project_id}/notify")
-def qq_notify_group_project(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def qq_notify_group_project(project_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """群聊通知：新发布的分组项目"""
     cfg = _get_qq_config(db)
     if not cfg: raise HTTPException(status_code=400, detail="QQ提醒未启用或未配置")
@@ -231,7 +231,7 @@ def qq_notify_group_project(project_id: int, db: Session = Depends(get_db), curr
 
 
 @router.post("/api/qq/group-project/{project_id}/remind")
-def qq_remind_group_project(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def qq_remind_group_project(project_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """私聊提醒：未加入分组的学生"""
     cfg = _get_qq_config(db)
     if not cfg: raise HTTPException(status_code=400, detail="QQ提醒未启用或未配置")
@@ -267,7 +267,7 @@ def qq_remind_group_project(project_id: int, db: Session = Depends(get_db), curr
 
 
 @router.post("/api/qq/activity/{activity_id}/notify")
-def qq_notify_activity(activity_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def qq_notify_activity(activity_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """群聊通知：活动签到开始提醒"""
     cfg = _get_qq_config(db)
     if not cfg: raise HTTPException(status_code=400, detail="QQ提醒未启用或未配置")
@@ -292,7 +292,7 @@ def qq_notify_activity(activity_id: int, db: Session = Depends(get_db), current_
 
 
 @router.post("/api/qq/activity/{activity_id}/remind")
-def qq_remind_activity(activity_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def qq_remind_activity(activity_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """私聊提醒：一键提醒所有未签到学生"""
     cfg = _get_qq_config(db)
     if not cfg: raise HTTPException(status_code=400, detail="QQ提醒未启用或未配置")
@@ -328,7 +328,7 @@ def qq_remind_activity(activity_id: int, db: Session = Depends(get_db), current_
 
 
 @router.post("/api/qq/activity/{activity_id}/remind-one")
-def qq_remind_activity_one(activity_id: int, data: dict, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def qq_remind_activity_one(activity_id: int, data: dict, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """私聊提醒：单个未签到学生"""
     cfg = _get_qq_config(db)
     if not cfg: raise HTTPException(status_code=400, detail="QQ提醒未启用或未配置")
@@ -355,7 +355,7 @@ def qq_remind_activity_one(activity_id: int, data: dict, db: Session = Depends(g
 
 
 @router.post("/api/qq/class-meeting/{meeting_id}/notify")
-def qq_notify_class_meeting(meeting_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def qq_notify_class_meeting(meeting_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """群聊通知：班会提醒"""
     cfg = _get_qq_config(db)
     if not cfg: raise HTTPException(status_code=400, detail="QQ提醒未启用或未配置")
@@ -380,7 +380,7 @@ def qq_notify_class_meeting(meeting_id: int, db: Session = Depends(get_db), curr
 
 
 @router.post("/api/qq/class-meeting/{meeting_id}/remind-leaders")
-def qq_remind_class_meeting_leaders(meeting_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def qq_remind_class_meeting_leaders(meeting_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """私聊提醒：考勤班干 + 主持/记录班干"""
     cfg = _get_qq_config(db)
     if not cfg: raise HTTPException(status_code=400, detail="QQ提醒未启用或未配置")

@@ -62,6 +62,8 @@ docker compose up -d --build app
 
 Compose 可通过 `MAX_UPLOAD_MB`、`MAX_IMPORT_MB`、`MAX_CONCURRENT_UPLOADS`、`MAX_CONCURRENT_DOWNLOADS`、`MAX_CONCURRENT_ARCHIVES`、`MAX_ARCHIVE_MB`、`MIN_FREE_DISK_MB`、`THREAD_TOKENS`、`DOWNLOAD_KIB_PER_SECOND` 调整限制。线程池默认 8。可选 NapCat 另限 0.5 CPU / 768 MiB。
 
+数据库连接池固定为 4，请求在异步依赖入口先排队，再进入同步认证与业务函数，避免线程池被等待连接的请求占满。数据库依赖使用函数作用域，在响应发送前关闭会话；长时间 ZIP、附件和表格下载不会持续占用连接。仍保持单个 worker，50 个并发读取通过排队服务。
+
 ## 图文、邮件与 QQ
 
 富文本复用现有 Text 字段，兼容旧纯文本。服务端清洗 HTML，仅允许本系统上传图片；图片输入最多 5 MiB、1600 万像素，转为最大 1600px WebP；普通附件最多 20 MiB，富文本目录总配额 1 GiB。

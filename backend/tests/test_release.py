@@ -204,6 +204,27 @@ class ReleaseTests(unittest.TestCase):
         (site/'assets'/'index-abc.js').unlink()
         self.assertFalse(inspect_build(site, 'test-revision')['ready'])
         self.assertEqual(self.client.get('/missing.webmanifest').status_code, 404)
+    def test_fifty_parallel_reads_do_not_exhaust_workers_or_connections(self):
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=50) as pool:
+            responses = list(pool.map(lambda _: self.client.get('/api/file-tasks', headers=self.admin), range(50)))
+        self.assertTrue(all(response.status_code == 200 for response in responses))
+        self.assertEqual(engine.pool.checkedout(), 0)
+    def test_streaming_response_releases_database_before_download(self):
+        from fastapi import FastAPI, Depends
+        from starlette.responses import StreamingResponse
+        from database import get_db
+        from sqlalchemy import text
+        site = FastAPI()
+        @site.get('/download')
+        def stream(db=Depends(get_db, scope='function')):
+            db.execute(text('SELECT 1'))
+            def chunks():
+                self.assertEqual(engine.pool.checkedout(), 0)
+                yield b'file-bytes'
+            return StreamingResponse(chunks())
+        with TestClient(site) as client:
+            self.assertEqual(client.get('/download').content, b'file-bytes')
     def test_single_and_student_zip_use_the_same_sequence(self):
         task=self.task();self.upload(task,('第一份.txt','第二份.txt'))
         with SessionLocal() as db:

@@ -22,7 +22,7 @@ router = APIRouter(tags=["notices"])
 
 
 @router.get("/api/notices", response_model=list[NoticeResponse])
-def list_notices(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def list_notices(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     notices = db.query(Notice).order_by(Notice.created_at.desc()).all()
     return [NoticeResponse(id=n.id, title=n.title, content=n.content,
             is_urgent=n.is_urgent,
@@ -33,7 +33,7 @@ def list_notices(db: Session = Depends(get_db), current_user: User = Depends(get
 
 
 @router.get("/api/notices/urgent", response_model=NoticeResponse)
-def get_urgent_notice(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_urgent_notice(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     notice = db.query(Notice).filter(Notice.is_urgent == True).first()
     if not notice:
         raise HTTPException(status_code=404, detail="当前没有紧急通知")
@@ -46,7 +46,7 @@ def get_urgent_notice(db: Session = Depends(get_db), current_user: User = Depend
 
 
 @router.post("/api/notices", response_model=NoticeResponse)
-def create_notice(data: NoticeCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def create_notice(data: NoticeCreate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     if data.is_urgent:
         for n in db.query(Notice).filter(Notice.is_urgent == True).all():
             n.is_urgent = False
@@ -63,7 +63,7 @@ def create_notice(data: NoticeCreate, db: Session = Depends(get_db), current_use
 
 
 @router.put("/api/notices/{notice_id}", response_model=NoticeResponse)
-def update_notice(notice_id: int, data: NoticeUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def update_notice(notice_id: int, data: NoticeUpdate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     notice = db.query(Notice).filter(Notice.id == notice_id).first()
     if not notice: raise HTTPException(status_code=404, detail="通知不存在")
     if data.title is not None: notice.title = data.title
@@ -83,7 +83,7 @@ def update_notice(notice_id: int, data: NoticeUpdate, db: Session = Depends(get_
 
 
 @router.delete("/api/notices/{notice_id}")
-def delete_notice(notice_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def delete_notice(notice_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     notice = db.query(Notice).filter(Notice.id == notice_id).first()
     if not notice: raise HTTPException(status_code=404, detail="通知不存在")
     db.delete(notice)

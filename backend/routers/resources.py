@@ -34,7 +34,7 @@ router = APIRouter(tags=["resources"])
 
 
 @router.get("/api/resource-categories", response_model=list[ResourceCategoryResponse])
-def list_resource_categories(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def list_resource_categories(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     categories = db.query(ResourceCategory).order_by(ResourceCategory.created_at.desc()).all()
     result = []
     for cat in categories:
@@ -48,7 +48,7 @@ def list_resource_categories(db: Session = Depends(get_db), current_user: User =
 
 
 @router.post("/api/resource-categories", response_model=ResourceCategoryResponse)
-def create_resource_category(data: ResourceCategoryCreate, db: Session = Depends(get_db),
+def create_resource_category(data: ResourceCategoryCreate, db: Session = Depends(get_db, scope="function"),
                              current_user: User = Depends(require_admin)):
     cat = ResourceCategory(name=data.name, description=data.description)
     db.add(cat)
@@ -62,7 +62,7 @@ def create_resource_category(data: ResourceCategoryCreate, db: Session = Depends
 
 
 @router.put("/api/resource-categories/{cat_id}", response_model=ResourceCategoryResponse)
-def update_resource_category(cat_id: int, data: ResourceCategoryUpdate, db: Session = Depends(get_db),
+def update_resource_category(cat_id: int, data: ResourceCategoryUpdate, db: Session = Depends(get_db, scope="function"),
                              current_user: User = Depends(require_admin)):
     cat = db.query(ResourceCategory).filter(ResourceCategory.id == cat_id).first()
     if not cat:
@@ -82,7 +82,7 @@ def update_resource_category(cat_id: int, data: ResourceCategoryUpdate, db: Sess
 
 
 @router.delete("/api/resource-categories/{cat_id}")
-def delete_resource_category(cat_id: int, db: Session = Depends(get_db),
+def delete_resource_category(cat_id: int, db: Session = Depends(get_db, scope="function"),
                              current_user: User = Depends(require_admin)):
     cat = db.query(ResourceCategory).filter(ResourceCategory.id == cat_id).first()
     if not cat:
@@ -99,7 +99,7 @@ def delete_resource_category(cat_id: int, db: Session = Depends(get_db),
 
 
 @router.get("/api/resources", response_model=list[ResourceFileResponse])
-def list_resources(category_id: int = Query(None), db: Session = Depends(get_db),
+def list_resources(category_id: int = Query(None), db: Session = Depends(get_db, scope="function"),
                    current_user: User = Depends(get_current_user),
                    x_view_mode: str = Header(None)):
     query = db.query(ResourceFile)
@@ -124,7 +124,7 @@ def list_resources(category_id: int = Query(None), db: Session = Depends(get_db)
 
 @router.post("/api/resources/upload")
 async def upload_resource(category_id: int = Form(...), visibility: str = Form("student"), file: UploadFile = File(...),
-                          db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+                          db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     cat = db.query(ResourceCategory).filter(ResourceCategory.id == category_id).first()
     if not cat:
         raise HTTPException(status_code=404, detail="分类不存在")
@@ -158,7 +158,7 @@ async def upload_resource(category_id: int = Form(...), visibility: str = Form("
 
 
 @router.delete("/api/resources/{file_id}")
-def delete_resource(file_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def delete_resource(file_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     resource = db.query(ResourceFile).filter(ResourceFile.id == file_id).first()
     if not resource:
         raise HTTPException(status_code=404, detail="文件不存在")
@@ -173,7 +173,7 @@ def delete_resource(file_id: int, db: Session = Depends(get_db), current_user: U
 
 
 @router.post("/api/resources/batch-delete")
-def batch_delete_resources(data: dict, db: Session = Depends(get_db),
+def batch_delete_resources(data: dict, db: Session = Depends(get_db, scope="function"),
                            current_user: User = Depends(require_admin)):
     ids = data.get("ids")
     resources = []

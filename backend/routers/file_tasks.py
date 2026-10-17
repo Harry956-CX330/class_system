@@ -47,7 +47,7 @@ router = APIRouter(tags=["file_tasks"])
 
 
 @router.get("/api/file-tasks", response_model=list[FileTaskResponse])
-def list_file_tasks(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def list_file_tasks(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     tasks = db.query(FileTask).options(joinedload(FileTask.author), joinedload(FileTask.group_project)).order_by(FileTask.created_at.desc()).all()
     counts = dict(db.query(FileSubmission.task_id, func.count(func.distinct(FileSubmission.student_id))).group_by(FileSubmission.task_id).all())
     result = []
@@ -66,7 +66,7 @@ def list_file_tasks(db: Session = Depends(get_db), current_user: User = Depends(
 
 
 @router.post("/api/file-tasks", response_model=FileTaskResponse)
-def create_file_task(data: FileTaskCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def create_file_task(data: FileTaskCreate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     validate_pattern(data.naming_pattern)
     task = FileTask(title=data.title, description=data.description,
                     deadline=datetime.fromisoformat(data.deadline), author_id=current_user.id,
@@ -86,7 +86,7 @@ def create_file_task(data: FileTaskCreate, db: Session = Depends(get_db), curren
 
 
 @router.delete("/api/file-tasks/{task_id}")
-def delete_file_task(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def delete_file_task(task_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     task = db.query(FileTask).filter(FileTask.id == task_id).first()
     if not task: raise HTTPException(status_code=404, detail="任务不存在")
     # 删除提交文件
@@ -101,7 +101,7 @@ def delete_file_task(task_id: int, db: Session = Depends(get_db), current_user: 
 
 
 @router.put("/api/file-tasks/{task_id}", response_model=FileTaskResponse)
-def update_file_task(task_id: int, data: FileTaskCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def update_file_task(task_id: int, data: FileTaskCreate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """编辑文件任务"""
     task = db.query(FileTask).filter(FileTask.id == task_id).first()
     if not task: raise HTTPException(status_code=404, detail="任务不存在")
@@ -124,7 +124,7 @@ def update_file_task(task_id: int, data: FileTaskCreate, db: Session = Depends(g
 
 
 @router.post("/api/file-tasks/{task_id}/submit")
-def submit_files(task_id: int, files: list[UploadFile] = File(...), db: Session = Depends(get_db),
+def submit_files(task_id: int, files: list[UploadFile] = File(...), db: Session = Depends(get_db, scope="function"),
                        current_user: User = Depends(get_current_user)):
     """提交文件（支持多文件同时上传，重新提交会覆盖旧文件）"""
     with _submission_lock:
@@ -172,7 +172,7 @@ def submit_files(task_id: int, files: list[UploadFile] = File(...), db: Session 
 
 
 @router.get("/api/file-tasks/{task_id}/submissions", response_model=list[FileSubmissionResponse])
-def list_submissions(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+def list_submissions(task_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user),
                      x_view_mode: str = Header(None)):
     subs = db.query(FileSubmission).options(joinedload(FileSubmission.student)).filter(FileSubmission.task_id == task_id).order_by(FileSubmission.submitted_at.desc()).all()
     is_admin = current_user.role == "admin" or (current_user.is_class_leader and x_view_mode == "admin")
@@ -187,7 +187,7 @@ def list_submissions(task_id: int, db: Session = Depends(get_db), current_user: 
 
 
 @router.get("/api/file-tasks/submissions/{submission_id}/download")
-def download_submission(submission_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+def download_submission(submission_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user),
                         x_view_mode: str = Header(None)):
     """下载提交文件（仅管理员和文件提交者本人可下载，使用当前命名规则）"""
     sub = db.query(FileSubmission).filter(FileSubmission.id == submission_id).first()
@@ -217,7 +217,7 @@ def download_submission(submission_id: int, db: Session = Depends(get_db), curre
 
 
 @router.delete("/api/file-tasks/submissions/{submission_id}")
-def delete_submission(submission_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+def delete_submission(submission_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user),
                       x_view_mode: str = Header(None)):
     """删除提交文件（管理员可删除任意，学生仅可删除自己的）"""
     sub = db.query(FileSubmission).filter(FileSubmission.id == submission_id).first()
@@ -236,7 +236,7 @@ def delete_submission(submission_id: int, db: Session = Depends(get_db), current
 
 
 @router.get("/api/file-tasks/{task_id}/unsubmitted", response_model=list[UserResponse])
-def get_unsubmitted_students(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def get_unsubmitted_students(task_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """获取尚未提交文件任务的学生名单（仅管理员可见）"""
     task = db.query(FileTask).filter(FileTask.id == task_id).first()
     if not task:
@@ -252,7 +252,7 @@ def get_unsubmitted_students(task_id: int, db: Session = Depends(get_db), curren
 
 
 @router.post("/api/file-tasks/{task_id}/send-email")
-def send_task_email_reminder(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def send_task_email_reminder(task_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """一键发送邮件提醒未提交的学生"""
     task = db.query(FileTask).filter(FileTask.id == task_id).first()
     if not task:
@@ -355,7 +355,7 @@ def _build_zip_response(items: list, base_filename: str):
 
 @router.get("/api/file-tasks/{task_id}/download-zip-info")
 def download_task_zip_info(task_id: int, structure: Literal['flat', 'per_student'] = "flat",
-                           db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+                           db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """返回某任务打包下载的分批信息"""
     task = db.query(FileTask).filter(FileTask.id == task_id).first()
     if not task: raise HTTPException(status_code=404, detail="任务不存在")
@@ -376,7 +376,7 @@ def download_task_zip_info(task_id: int, structure: Literal['flat', 'per_student
 
 @router.get("/api/file-tasks/{task_id}/download-zip")
 def download_task_zip(task_id: int, structure: Literal['flat', 'per_student'] = "flat", batch: int | None = None,
-                      db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+                      db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """打包下载某个任务的全部提交文件（支持分批、文件夹结构，使用当前命名规则）"""
     task = db.query(FileTask).filter(FileTask.id == task_id).first()
     if not task: raise HTTPException(status_code=404, detail="任务不存在")
@@ -403,7 +403,7 @@ def download_task_zip(task_id: int, structure: Literal['flat', 'per_student'] = 
 
 
 @router.get("/api/file-tasks/{task_id}/students/{student_id}/download-zip")
-def download_student_zip(task_id: int, student_id: int, db: Session = Depends(get_db),
+def download_student_zip(task_id: int, student_id: int, db: Session = Depends(get_db, scope="function"),
                          current_user: User = Depends(get_current_user), x_view_mode: str = Header(None)):
     """打包下载某个学生在该任务下的全部提交文件（使用当前命名规则）"""
     can_manage_all = current_user.role == "admin" or (current_user.is_class_leader and x_view_mode == "admin")
@@ -436,7 +436,7 @@ def download_student_zip(task_id: int, student_id: int, db: Session = Depends(ge
 
 @router.get("/api/file-tasks/download-all-zip-info")
 def download_all_tasks_zip_info(structure: Literal['flat', 'per_student'] = "flat",
-                                db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+                                db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """返回全部任务打包下载的分批信息"""
     items = _collect_zip_items(db, task=None, structure=structure)
     batches = _split_batches(items)
@@ -455,7 +455,7 @@ def download_all_tasks_zip_info(structure: Literal['flat', 'per_student'] = "fla
 
 @router.get("/api/file-tasks/download-all-zip")
 def download_all_tasks_zip(structure: Literal['flat', 'per_student'] = "flat", batch: int | None = None,
-                           db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+                           db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """打包下载所有任务的提交文件（支持分批、文件夹结构，使用当前命名规则）"""
     items = _collect_zip_items(db, task=None, structure=structure)
     if not items:

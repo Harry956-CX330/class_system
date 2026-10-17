@@ -38,7 +38,7 @@ def generate_checkin_code() -> str:
 
 
 @router.get("/api/activities", response_model=list[ActivityResponse])
-def list_activities(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def list_activities(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     """获取活动列表（带参与和签到统计）"""
     acts = db.query(Activity).order_by(Activity.start_time.desc()).all()
     # 当前用户（学生）在各活动中的签到状态
@@ -68,7 +68,7 @@ def list_activities(db: Session = Depends(get_db), current_user: User = Depends(
 
 
 @router.post("/api/activities", response_model=ActivityResponse)
-def create_activity(data: ActivityCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def create_activity(data: ActivityCreate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     mode = data.checkin_mode if data.checkin_mode in ("auto", "fixed") else "auto"
     interval = max(1, int(data.checkin_interval or 2))
     act = Activity(title=data.title, description=data.description, location=data.location,
@@ -88,7 +88,7 @@ def create_activity(data: ActivityCreate, db: Session = Depends(get_db), current
 
 
 @router.put("/api/activities/{activity_id}", response_model=ActivityResponse)
-def update_activity(activity_id: int, data: ActivityUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def update_activity(activity_id: int, data: ActivityUpdate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     act = db.query(Activity).filter(Activity.id == activity_id).first()
     if not act: raise HTTPException(status_code=404, detail="活动不存在")
     if data.title is not None: act.title = data.title
@@ -116,7 +116,7 @@ def update_activity(activity_id: int, data: ActivityUpdate, db: Session = Depend
 
 
 @router.delete("/api/activities/{activity_id}")
-def delete_activity(activity_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def delete_activity(activity_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     act = db.query(Activity).filter(Activity.id == activity_id).first()
     if not act: raise HTTPException(status_code=404, detail="活动不存在")
     db.delete(act)
@@ -126,7 +126,7 @@ def delete_activity(activity_id: int, db: Session = Depends(get_db), current_use
 
 
 @router.get("/api/activities/{activity_id}/participants", response_model=list[ParticipantResponse])
-def list_participants(activity_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def list_participants(activity_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     act = db.query(Activity).filter(Activity.id == activity_id).first()
     if not act: raise HTTPException(status_code=404, detail="活动不存在")
     parts = db.query(ActivityParticipant).filter(ActivityParticipant.activity_id == activity_id).all()
@@ -142,7 +142,7 @@ def list_participants(activity_id: int, db: Session = Depends(get_db), current_u
 
 
 @router.post("/api/activities/{activity_id}/import-all-students")
-def import_all_students(activity_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def import_all_students(activity_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """将全班学生导入活动参与名单"""
     act = db.query(Activity).filter(Activity.id == activity_id).first()
     if not act: raise HTTPException(status_code=404, detail="活动不存在")
@@ -163,7 +163,7 @@ def import_all_students(activity_id: int, db: Session = Depends(get_db), current
 
 
 @router.post("/api/activities/{activity_id}/import-participants")
-def import_participants(activity_id: int, data: dict, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def import_participants(activity_id: int, data: dict, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """导入指定学生到活动（{ student_ids: [1,2,3] }）"""
     act = db.query(Activity).filter(Activity.id == activity_id).first()
     if not act: raise HTTPException(status_code=404, detail="活动不存在")
@@ -184,7 +184,7 @@ def import_participants(activity_id: int, data: dict, db: Session = Depends(get_
 
 
 @router.get("/api/activities/{activity_id}/export")
-def export_activity_participants(activity_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def export_activity_participants(activity_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """导出活动参与名单为Excel"""
     act = db.query(Activity).filter(Activity.id == activity_id).first()
     if not act: raise HTTPException(status_code=404, detail="活动不存在")
@@ -220,7 +220,7 @@ def export_activity_participants(activity_id: int, db: Session = Depends(get_db)
 
 
 @router.put("/api/activities/{activity_id}/sign-in")
-def update_sign_status(activity_id: int, data: dict, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def update_sign_status(activity_id: int, data: dict, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """更新签到状态 { student_id: int, sign_status: str }"""
     act = db.query(Activity).filter(Activity.id == activity_id).first()
     if not act: raise HTTPException(status_code=404, detail="活动不存在")
@@ -242,7 +242,7 @@ def update_sign_status(activity_id: int, data: dict, db: Session = Depends(get_d
 
 
 @router.post("/api/activities/{activity_id}/refresh-checkin-code")
-def refresh_checkin_code(activity_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def refresh_checkin_code(activity_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """刷新活动四位数字签到码"""
     act = db.query(Activity).filter(Activity.id == activity_id).first()
     if not act: raise HTTPException(status_code=404, detail="活动不存在")
@@ -253,7 +253,7 @@ def refresh_checkin_code(activity_id: int, db: Session = Depends(get_db), curren
 
 
 @router.put("/api/activities/{activity_id}/checkin-mode")
-def set_checkin_mode(activity_id: int, data: dict, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def set_checkin_mode(activity_id: int, data: dict, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """设置签到模式与刷新间隔 { mode: 'auto' | 'fixed', interval: int }"""
     act = db.query(Activity).filter(Activity.id == activity_id).first()
     if not act: raise HTTPException(status_code=404, detail="活动不存在")
@@ -269,7 +269,7 @@ def set_checkin_mode(activity_id: int, data: dict, db: Session = Depends(get_db)
 
 
 @router.post("/api/activities/verify-checkin")
-def verify_checkin(data: CheckinVerifyRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def verify_checkin(data: CheckinVerifyRequest, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     """学生输入四位数字签到码进行签到"""
     act = db.query(Activity).filter(Activity.id == data.activity_id).first()
     if not act:
