@@ -143,7 +143,9 @@ def main():
     compose_path = deployment/'compose.json'
     compose_path.write_text(json.dumps(compose, indent=2))
     compose_path.chmod(0o600)
-    run('docker','compose','-p','sk2441','-f',str(compose_path),'config','--quiet')
+    # A unique project prevents Compose replacing the renamed rollback container.
+    project = 'sk2441-'+revision[:12]
+    run('docker','compose','-p',project,'-f',str(compose_path),'config','--quiet')
     run('docker','stop','-t','30',options.old_container)
     old_name = options.old_container
     renamed = False
@@ -159,7 +161,7 @@ def main():
                 if destination.execute('PRAGMA quick_check').fetchone()[0] != 'ok':
                     raise RuntimeError('Database backup integrity check failed')
         (deployment/'data-before.db').chmod(0o600)
-        run('docker','compose','-p','sk2441','-f',str(compose_path),'up','-d','app')
+        run('docker','compose','-p',project,'-f',str(compose_path),'up','-d','app')
         health = wait_ready(8000, revision)
         after = schema_digest(database)
         if after != before:
