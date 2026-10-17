@@ -113,6 +113,11 @@ def get_survey(survey_id: int, db: Session = Depends(get_db), current_user: User
 
 @router.put("/api/surveys/{survey_id}", response_model=SurveyRespSchema)
 def update_survey(survey_id: int, data: SurveyCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    with submission_lock:
+        return _update_survey(survey_id, data, db, current_user)
+
+
+def _update_survey(survey_id, data, db, current_user):
     survey = db.query(Survey).filter(Survey.id == survey_id).first()
     if not survey:
         raise HTTPException(status_code=404, detail="问卷不存在")
@@ -385,6 +390,11 @@ def export_survey_results(survey_id: int, sort_by: str = Query("student_id"),
             r["submitted_at"] or datetime.min
         ), reverse=reverse)
 
+    if survey.is_anonymous:
+        # Never preserve roster order in an export that hides student identifiers.
+        import secrets
+        secrets.SystemRandom().shuffle(rows_data)
+
     # 生成Excel
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -396,7 +406,7 @@ def export_survey_results(survey_id: int, sort_by: str = Query("student_id"),
         headers.append(q.question_text)
     if include_all:
         headers.append("提交状态")
-    ws.append(headers)
+    ws.append([("'" + v) if v.startswith(("=","+","-","@")) else v for v in headers])
 
     # 数据行
     for row in rows_data:

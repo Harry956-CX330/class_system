@@ -21,7 +21,7 @@ class DownloadRequest(BaseModel):
 @router.post("/api/transfers")
 def prepare_download(data: DownloadRequest, request: Request, user: User = Depends(get_current_user)):
     parts = urlsplit(data.path)
-    if parts.scheme or parts.netloc or not DOWNLOAD_PATH.fullmatch(parts.path):
+    if parts.scheme or parts.netloc or not (DOWNLOAD_PATH.fullmatch(parts.path) or MEDIA_PATH.fullmatch(parts.path)):
         raise HTTPException(400, "不支持的下载地址")
     query = parse_qs(parts.query)
     if set(query) - {"structure", "batch", "sort_by", "sort_order", "include_all"}:

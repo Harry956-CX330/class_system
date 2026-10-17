@@ -203,6 +203,9 @@ class ReleaseTests(unittest.TestCase):
         self.assertTrue(any(p.get('Content-ID') for p in message.walk()))
         self.assertIn('/api/transfers/open/',message.get_body(preferencelist=('plain',)).get_content())
         self.assertLess(len(message.as_bytes()),30000)
+        response=self.client.post('/api/transfers',json={'path':'/static/rich/'+large.name},headers=self.student)
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(self.client.get(response.json()['url']).content,large.read_bytes())
     def test_qq_sends_segments_and_files_without_cq_injection(self):
         from services.qq import _send_qq_msg
         folder=root/'uploads'/'rich';folder.mkdir(exist_ok=True)
