@@ -311,40 +311,14 @@ def send_meeting_record_email(meeting_id: int, data: dict, db: Session = Depends
     file_path = os.path.join(UPLOAD_DIR, record.record_file)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=400, detail="记录文件不存在，请重新上传")
-    cfg = load_smtp_config()
-    if not cfg.get("password"):
-        raise HTTPException(status_code=400, detail="SMTP 邮件服务尚未配置，请先保存配置")
-    try:
-        with smtplib.SMTP(cfg["host"], cfg["port"], timeout=15) as server:
-            server.starttls()
-            server.login(cfg["username"], cfg["password"])
-            msg = MIMEMultipart()
-            msg["From"] = cfg["username"]
-            msg["To"] = email_addr
-            msg["Subject"] = meeting.title
-            time_str = meeting.meeting_date.strftime("%Y-%m-%d %H:%M") if meeting.meeting_date else ""
-            body = (
-                f"班会：{meeting.title}\n"
-                f"时间：{time_str or '待定'}\n"
-                f"地点：{meeting.location or '待定'}\n\n"
-                f"详见附件班会记录文件。"
-            )
-            msg.attach(MIMEText(body, "plain", "utf-8"))
-            with open(file_path, "rb") as fp:
-                part = MIMEBase("application", "octet-stream")
-                part.set_payload(fp.read())
-                encoders.encode_base64(part)
-                part.add_header(
-                    "Content-Disposition", "attachment",
-                    filename=("utf-8", "", record.record_file_name or record.record_file),
-                )
-                msg.attach(part)
-            server.sendmail(cfg["username"], email_addr, msg.as_string())
-        _save_email_history(db, email_addr, "", meeting.title, "meeting_record", meeting_id, "sent", "")
-        return {"message": "邮件已发送"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        _save_email_history(db, email_addr, "", meeting.title, "meeting_record", meeting_id, "failed", str(e))
-        raise HTTPException(status_code=500, detail=f"邮件发送失败: {str(e)}")
+    time_str = meeting.meeting_date.strftime("%Y-%m-%d %H:%M") if meeting.meeting_date else "待定"
+    from html import escape
+    body = (f"【班会记录】\n班会：{escape(meeting.title)}\n时间：{time_str}\n"
+            f"地点：{escape(meeting.location or '待定')}\n\n请查阅班会记录附件；大文件使用限时链接。")
+    result = send_emails_batch([email_addr], meeting.title, body, db=db, send_type='meeting_record', related_id=meeting_id,
+        attachments=[{'url':'/static/'+record.record_file, 'name':record.record_file_name or record.record_file,
+                      'image':False, 'user_id':current_user.id}])
+    if not result.get('success'):
+        raise HTTPException(502, '班会记录邮件发送失败，请检查邮件设置及发送历史')
+    return {'message':'邮件已发送'}
 

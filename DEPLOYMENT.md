@@ -116,6 +116,8 @@ location / {
 
 ## 验证
 
+2.2.1 的公告分类和文件任务格式分别保存在 `DATA_DIR/notice-categories.json`、`DATA_DIR/task-formats.json`，与轮播设置、密钥一起随数据目录持久化和备份。缺少这两个文件时，历史公告显示「未分类」、历史任务保留原有格式范围。此版本没有数据库迁移。
+
 健康检查端点为 `/api/health`。部署时查看容器日志；如果启动报告 `Database schema is incompatible`，先核对 `DATABASE_URL` 和服务器备份，不要对线上数据库执行未经审核的迁移。
 
 ```sh

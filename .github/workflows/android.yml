@@ -6,9 +6,6 @@ on:
         description: Application server URL
         required: true
         default: https://8.163.67.49:8000
-  push:
-    branches: [main]
-    paths: ['client/**', '.github/workflows/android.yml']
 permissions:
   contents: read
 jobs:

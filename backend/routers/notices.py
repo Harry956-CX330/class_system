@@ -17,18 +17,20 @@ from services.qq import _get_qq_config, _send_qq_msg
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
+from services.business_settings import notice_categories, set_notice_category
 
 router = APIRouter(tags=["notices"])
 
 
 @router.get("/api/notices", response_model=list[NoticeResponse])
-def list_notices(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
+def list_notices(category: str = None, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(get_current_user)):
     notices = db.query(Notice).order_by(Notice.created_at.desc()).all()
-    return [NoticeResponse(id=n.id, title=n.title, content=n.content,
+    categories = notice_categories()
+    return [NoticeResponse(id=n.id, title=n.title, content=n.content, category=categories.get(str(n.id), '未分类'),
             is_urgent=n.is_urgent,
             created_at=n.created_at, updated_at=n.updated_at, author_id=n.author_id,
             author_name=n.author.real_name if n.author else "",
-            author_qq=n.author.qq_number if n.author else "") for n in notices]
+            author_qq=n.author.qq_number if n.author else "") for n in notices if category is None or categories.get(str(n.id), '未分类') == category]
 
 
 
@@ -37,7 +39,7 @@ def get_urgent_notice(db: Session = Depends(get_db, scope="function"), current_u
     notice = db.query(Notice).filter(Notice.is_urgent == True).first()
     if not notice:
         raise HTTPException(status_code=404, detail="当前没有紧急通知")
-    return NoticeResponse(id=notice.id, title=notice.title, content=notice.content,
+    return NoticeResponse(id=notice.id, title=notice.title, content=notice.content, category=notice_categories().get(str(notice.id),'未分类'),
                           is_urgent=notice.is_urgent,
                           created_at=notice.created_at, updated_at=notice.updated_at,
                           author_id=notice.author_id, author_name=notice.author.real_name if notice.author else "",
@@ -54,7 +56,8 @@ def create_notice(data: NoticeCreate, db: Session = Depends(get_db, scope="funct
     db.add(notice)
     db.commit()
     db.refresh(notice)
-    return NoticeResponse(id=notice.id, title=notice.title, content=notice.content,
+    set_notice_category(notice.id, data.category)
+    return NoticeResponse(id=notice.id, title=notice.title, content=notice.content, category=data.category.strip() or '未分类',
                           is_urgent=notice.is_urgent,
                           created_at=notice.created_at, updated_at=notice.updated_at,
                           author_id=notice.author_id, author_name=current_user.real_name,
@@ -74,7 +77,9 @@ def update_notice(notice_id: int, data: NoticeUpdate, db: Session = Depends(get_
     if data.is_urgent is not None: notice.is_urgent = data.is_urgent
     db.commit()
     db.refresh(notice)
-    return NoticeResponse(id=notice.id, title=notice.title, content=notice.content,
+    if data.category is not None:
+        set_notice_category(notice.id, data.category)
+    return NoticeResponse(id=notice.id, title=notice.title, content=notice.content, category=notice_categories().get(str(notice.id),'未分类'),
                           is_urgent=notice.is_urgent,
                           created_at=notice.created_at, updated_at=notice.updated_at,
                           author_id=notice.author_id, author_name=current_user.real_name,
@@ -88,5 +93,6 @@ def delete_notice(notice_id: int, db: Session = Depends(get_db, scope="function"
     if not notice: raise HTTPException(status_code=404, detail="通知不存在")
     db.delete(notice)
     db.commit()
+    set_notice_category(notice_id, '')
     return {"message": "删除成功"}
 

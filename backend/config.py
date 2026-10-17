@@ -31,7 +31,7 @@ ZIP_BATCH_MAX_SIZE = 50 * 1024 * 1024
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 DOCUMENT_EXTENSIONS = {".pdf", ".doc", ".docx"}
 ALLOWED_DOC_EXTENSIONS = DOCUMENT_EXTENSIONS | ALLOWED_EXTENSIONS | {
-    ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".zip", ".rar",
+    ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".zip", ".rar", ".7z",
 }
 CORS_ORIGINS = [s.strip() for s in os.environ.get(
     "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://8.163.67.49:8000"

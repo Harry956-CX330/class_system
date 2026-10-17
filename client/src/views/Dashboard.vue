@@ -86,7 +86,7 @@
 
         <!-- 管理端菜单 -->
         <template v-if="currentView === 'admin'">
-          <el-menu-item v-if="authStore.user?.role==='admin'" index="/appearance"><el-icon><Picture /></el-icon><span>登录页外观</span></el-menu-item>
+          <el-menu-item index="/appearance"><el-icon><Picture /></el-icon><span>登录页外观</span></el-menu-item>
           <el-menu-item index="/grades">
             <el-icon><Document /></el-icon>
             <span>成绩管理</span>
@@ -186,10 +186,11 @@
             size="small" 
             plain
             class="switch-view-btn"
+            :aria-label="currentView === 'admin' ? '切换用户端' : '切换管理端'"
             @click="switchView"
           >
             <el-icon><Switch /></el-icon>
-            {{ currentView === 'admin' ? '切换用户端' : '切换管理端' }}
+            <span class="switch-view-label">{{ currentView === 'admin' ? '切换用户端' : '切换管理端' }}</span><span class="switch-view-short">切换</span>
           </el-button>
           
           <InstallApp />

@@ -253,18 +253,21 @@ class UserImportItem(BaseModel):
 
 
 class NoticeCreate(RichTextModel):
+    category: str = Field(default="未分类", max_length=30)
     title: str
     content: str
     is_urgent: bool = False
 
 
 class NoticeUpdate(RichTextModel):
+    category: Optional[str] = Field(default=None, max_length=30)
     title: Optional[str] = None
     content: Optional[str] = None
     is_urgent: Optional[bool] = None
 
 
 class NoticeResponse(BaseModel):
+    category: str = "未分类"
     id: int
     title: str
     content: str
@@ -411,6 +414,7 @@ class SocialPracticeResponse(BaseModel):
 
 
 class FileTaskCreate(RichTextModel):
+    allowed_extensions: Optional[list[str]] = Field(default=None, max_length=30)
     title: str
     description: str = ""
     deadline: str = Field(min_length=1)
@@ -419,6 +423,7 @@ class FileTaskCreate(RichTextModel):
 
 
 class FileTaskResponse(BaseModel):
+    allowed_extensions: list[str] = Field(default_factory=list)
     id: int
     title: str
     description: str

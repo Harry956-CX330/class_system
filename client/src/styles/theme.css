@@ -97,6 +97,25 @@
 }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; transition-duration:.01ms!important; } }
 
+/* Mobile navigation and release controls share semantic theme colors. */
+.notice-category-filter{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;margin-bottom:16px;background:var(--surface);border:1px solid var(--line);border-radius:12px;color:var(--ink)}
+.notice-category-filter select{max-width:100%;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.notice-category-tag{margin-right:8px}.task-format-hint,.format-hint{font-size:12px;color:var(--muted);line-height:1.7;overflow-wrap:anywhere}
+.file-format-settings .el-checkbox-group{display:flex;flex-wrap:wrap;gap:4px 16px}.file-format-settings .el-checkbox{margin-right:0;max-width:100%;height:auto;min-height:32px;white-space:normal}.file-format-settings .el-checkbox__label{overflow-wrap:anywhere;white-space:normal}
+#app .header-left{min-width:0;flex:1;overflow:hidden}
+#app .admin-header .page-title{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:20px;margin:0}
+#app .menu-toggle-btn{flex-shrink:0}#app .header-right{flex-shrink:0}
+.switch-view-short{display:none}
+@media(max-width:480px){#app .header-left{min-width:32px}#app .switch-view-label{display:none}#app .switch-view-short{display:inline}#app .header-right .switch-view-btn{margin-right:0}#app .header-right>.el-button{margin-left:0;padding-left:7px;padding-right:7px}#app .header-right .theme-switch{max-width:84px;padding-left:4px;padding-right:4px}}
+html.dark #app .admin-gpa-section{background:var(--surface-soft)!important;border-color:var(--line)!important}
+html.dark #app .gpa-student-card{background:var(--surface);border-color:var(--line)}
+html.dark #app .gpa-student-danger,html.dark #app .gpa-summary.gpa-warning{background:#3a2432;border-color:#9d5265}
+html.dark #app .gpa-danger,html.dark #app .gpa-alert,html.dark #app .gpa-student-warn{color:#ff929f}
+html.dark #app .gpa-pass{color:#7bd4a4}
+#app .survey-editor-heading h2{color:var(--ink)}
+#app .survey-editor-heading p,#app .survey-editor-heading .editor-eyebrow,#app .question-description summary{color:var(--muted)}
+@media(max-width:767px){#app .admin-header .hide-on-tiny{display:none}#app .admin-header .page-title{font-size:15px}#app .header-right{gap:6px}#app .switch-btn{max-width:100px}#app .theme-switcher{max-width:84px}#app .user-dropdown{padding:4px}}
+
 /* Semantic surfaces are shared by login, management pages and teleported dialogs. */
 :root{--safe-top:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px));--login-glow:#dce9ff;--surface:#fff;--surface-soft:#f4f7fd;--ink:#203047;--muted:#64758e;--line:#dce5f0;--el-bg-color:#fff;--el-text-color-secondary:#64758e}
 html.dark{--login-glow:#193867;--surface:#18253b;--surface-soft:#122038;--ink:#e2eafb;--muted:#a4b6d0;--line:#31435e;--el-bg-color:#18253b;--el-bg-color-overlay:#1c2c44;--el-bg-color-page:#0e1829;--el-fill-color-blank:#18253b;--el-fill-color-light:#22334e;--el-fill-color-lighter:#1d2b43;--el-text-color-primary:#e2eafb;--el-text-color-regular:#c2cee1;--el-text-color-secondary:#a4b6d0;--el-border-color:#31435e;--el-border-color-light:#2b3d59;--el-border-color-lighter:#293b55;--el-color-primary:#76a9ff;--el-color-primary-light-3:#5786d7;--el-color-primary-light-5:#3d619b;--el-color-primary-light-7:#2a4771;--el-color-primary-light-8:#263d60;--el-color-primary-light-9:#20314d;--el-color-primary-dark-2:#93bcff;color:var(--ink);background:var(--el-bg-color-page)}

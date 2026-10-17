@@ -5,10 +5,10 @@
         :class="{ active: editor?.isActive(tool.active) }" :disabled="disabled" @mousedown.prevent @click="tool.run()">{{ tool.text }}</button>
       <button type="button" :disabled="disabled" @click="addLink">链接</button>
       <button v-if="canAttach" type="button" :disabled="uploading || disabled" @click="fileInput.click()">{{ uploading ? '上传中…' : '图片 / 附件' }}</button>
-      <input ref="fileInput" type="file" hidden accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar" @change="onFile" />
+      <input ref="fileInput" type="file" hidden multiple accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.7z" @change="onFile" />
     </div>
     <editor-content :editor="editor" class="rich-edit-body" />
-    <div class="rich-editor-hint">{{ canAttach ? '图片自动压缩；图片 ≤5 MiB，附件 ≤20 MiB。大附件在提醒中使用限时链接。' : '支持段落、标题、列表和链接。' }}</div>
+    <div class="rich-editor-hint">{{ canAttach ? '支持一次选择多张图片或附件（最多 20 个），也可多次添加；图片自动压缩，每张 ≤5 MiB、附件 ≤20 MiB。大附件在提醒中使用限时链接。' : '支持段落、标题、列表和链接。' }}</div>
   </div>
 </template>
 <script setup>
@@ -21,7 +21,7 @@ import { useAuthStore } from '../stores/auth'
 import { richHtml } from '../utils/richtext'
 import api from '../api'
 const props = defineProps({ modelValue: { type: String, default: '' }, disabled: Boolean })
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'uploading'])
 const auth = useAuthStore()
 const canAttach = computed(() => auth.isAdmin || auth.isClassLeader)
 const fileInput = ref(null), uploading = ref(false)
@@ -31,7 +31,7 @@ const editor = useEditor({
   editorProps: { attributes: { role: 'textbox', 'aria-label': '富文本正文', 'aria-multiline': 'true' },
     handlePaste: (_, event) => {
       if (event.clipboardData?.files.length) {
-        event.preventDefault(); if (canAttach.value) upload(event.clipboardData.files[0]); return true
+        event.preventDefault(); if (canAttach.value) uploadFiles(Array.from(event.clipboardData.files)); return true
       }
       return false
     }
@@ -55,19 +55,23 @@ async function addLink() {
     else editor.value.chain().focus().unsetLink().run()
   } catch {}
 }
-async function onFile(event) { const file = event.target.files[0]; event.target.value = ''; if (file) await upload(file) }
-async function upload(file) {
+async function onFile(event) { const files = Array.from(event.target.files); event.target.value = ''; await uploadFiles(files) }
+async function uploadFiles(files) {
   if (uploading.value || props.disabled) return
+  if (files.length>20) return ElMessage.warning('一次最多添加 20 个附件，请分批添加')
+  uploading.value=true; emit('uploading',true)
+  try { for(const file of files) await upload(file) } finally { uploading.value=false; emit('uploading',false) }
+}
+async function upload(file) {
+  if (props.disabled) return
   const image = /\.(jpe?g|png|webp|gif)$/i.test(file.name)
   if (file.size > (image ? 5 : 20)*1024*1024) return ElMessage.warning(image ? '图片不能超过 5 MiB' : '附件不能超过 20 MiB')
-  uploading.value = true
   try {
     const data = new FormData(); data.append('file',file)
     const { data: result } = await api.post('/api/media',data,{ timeout: 0 })
-    if (result.image) editor.value.chain().focus().setImage({ src: result.url, alt: result.name }).run()
+    if (result.image) editor.value.chain().focus().insertContent([{ type:'image', attrs:{ src:result.url, alt:result.name } }, { type:'paragraph' }]).run()
     else editor.value.chain().focus().insertContent([{ type:'paragraph', content:[{ type:'text',text:'📎 '+result.name,marks:[{ type:'link',attrs:{ href:result.url,title:result.name } }] }] },{ type:'paragraph' }]).run()
   } catch (error) { ElMessage.error(error.response?.data?.detail || '附件上传失败') }
-  finally { uploading.value = false }
 }
 watch(() => props.modelValue, value => { if (editor.value && value !== editor.value.getHTML()) editor.value.commands.setContent(richHtml(value), { emitUpdate: false }) })
 watch(() => props.disabled, value => editor.value?.setEditable(!value))

@@ -23,5 +23,7 @@ app.mount('#app')
 
 window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); window.__installPrompt = event })
 if (import.meta.env.PROD && 'serviceWorker' in navigator && window.isSecureContext) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}))
+  const register = () => navigator.serviceWorker.register('/sw.js').catch(() => {})
+  if (document.readyState === 'complete') register()
+  else window.addEventListener('load', register, { once: true })
 }

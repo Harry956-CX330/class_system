@@ -44,6 +44,7 @@ import os
 import zipfile
 
 router = APIRouter(tags=["file_tasks"])
+from services.business_settings import task_formats, set_task_formats, validate_formats
 
 
 @router.get("/api/file-tasks", response_model=list[FileTaskResponse])
@@ -53,7 +54,7 @@ def list_file_tasks(db: Session = Depends(get_db, scope="function"), current_use
     result = []
     for t in tasks:
         submission_count = counts.get(t.id, 0)
-        result.append(FileTaskResponse(id=t.id, title=t.title, description=t.description,
+        result.append(FileTaskResponse(id=t.id, title=t.title, description=t.description, allowed_extensions=task_formats(t.id),
                        created_at=t.created_at, deadline=t.deadline, author_id=t.author_id,
                        author_name=t.author.real_name if t.author else "",
                        author_qq=t.author.qq_number if t.author else "",
@@ -68,6 +69,7 @@ def list_file_tasks(db: Session = Depends(get_db, scope="function"), current_use
 @router.post("/api/file-tasks", response_model=FileTaskResponse)
 def create_file_task(data: FileTaskCreate, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     validate_pattern(data.naming_pattern)
+    formats = validate_formats(data.allowed_extensions or [])
     task = FileTask(title=data.title, description=data.description,
                     deadline=datetime.fromisoformat(data.deadline), author_id=current_user.id,
                     naming_pattern=data.naming_pattern or "{name}_{sid}",
@@ -75,7 +77,8 @@ def create_file_task(data: FileTaskCreate, db: Session = Depends(get_db, scope="
     db.add(task)
     db.commit()
     db.refresh(task)
-    return FileTaskResponse(id=task.id, title=task.title, description=task.description,
+    set_task_formats(task.id, formats)
+    return FileTaskResponse(id=task.id, title=task.title, description=task.description, allowed_extensions=formats,
                             created_at=task.created_at, deadline=task.deadline,
                             author_id=task.author_id, author_name=current_user.real_name,
                             author_qq=current_user.qq_number,
@@ -96,6 +99,7 @@ def delete_file_task(task_id: int, db: Session = Depends(get_db, scope="function
             os.remove(file_path)
     db.delete(task)
     db.commit()
+    set_task_formats(task_id, [])
     return {"message": "删除成功"}
 
 
@@ -106,6 +110,7 @@ def update_file_task(task_id: int, data: FileTaskCreate, db: Session = Depends(g
     task = db.query(FileTask).filter(FileTask.id == task_id).first()
     if not task: raise HTTPException(status_code=404, detail="任务不存在")
     validate_pattern(data.naming_pattern)
+    formats = validate_formats(data.allowed_extensions) if data.allowed_extensions is not None else task_formats(task_id)
     task.title = data.title
     task.description = data.description
     task.deadline = datetime.fromisoformat(data.deadline)
@@ -113,7 +118,8 @@ def update_file_task(task_id: int, data: FileTaskCreate, db: Session = Depends(g
     task.group_project_id = data.group_project_id
     db.commit()
     db.refresh(task)
-    return FileTaskResponse(id=task.id, title=task.title, description=task.description,
+    set_task_formats(task.id, formats)
+    return FileTaskResponse(id=task.id, title=task.title, description=task.description, allowed_extensions=formats,
                             created_at=task.created_at, deadline=task.deadline,
                             author_id=task.author_id, author_name=current_user.real_name,
                             author_qq=current_user.qq_number,
@@ -135,8 +141,9 @@ def submit_files(task_id: int, files: list[UploadFile] = File(...), db: Session 
             raise HTTPException(400,"已过截止时间，不可再提交文件")
         if not 1 <= len(files) <= 20:
             raise HTTPException(422,"每次提交 1 至 20 个文件")
+        allowed = task_formats(task_id) or ALLOWED_DOC_EXTENSIONS
         for file in files:
-            if os.path.splitext(file.filename or "")[1].lower() not in ALLOWED_DOC_EXTENSIONS:
+            if os.path.splitext(file.filename or "")[1].lower() not in allowed:
                 raise HTTPException(400,"存在不支持的文件格式，请检查后重新上传")
         old_subs = db.query(FileSubmission).filter_by(task_id=task_id,student_id=current_user.id).all()
         created, submitted = [], []

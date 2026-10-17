@@ -153,6 +153,9 @@ def send_notice_email(notice_id: int, db: Session = Depends(get_db, scope="funct
         raise HTTPException(status_code=400, detail="没有可用的学生邮箱，请先在用户管理中补充邮箱信息")
     subject = f"[班级通知] {notice.title}"
     body = f"【通知公告】\n\n标题：{notice.title}\n发布人：{notice.author.real_name or notice.author.username}\n联系QQ：{notice.author.qq_number or '未填写'}\n发布时间：{notice.created_at.strftime('%Y-%m-%d %H:%M')}\n\n正文：\n{notice.content}\n\n---\n此邮件由智能班务系统自动发送，请勿回复"
+    from services.business_settings import notice_categories
+    from html import escape
+    body = body.replace('标题：', '分类：'+escape(notice_categories().get(str(notice_id),'未分类'))+'\n标题：', 1)
     result = send_emails_batch(to_emails, subject, body, db=db, send_type="notice", related_id=notice_id)
     return {"success": result.get("success", True), "detail": result}
 

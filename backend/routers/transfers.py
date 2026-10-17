@@ -11,6 +11,7 @@ from models import User
 router = APIRouter(tags=["transfers"])
 DOWNLOAD_PATH = re.compile(r"/api/(?:file-tasks/(?:[0-9]+/(?:download-zip|students/[0-9]+/download-zip)|download-all-zip|submissions/[0-9]+/download)|resources/[0-9]+/download|surveys/[0-9]+/export)$")
 MEDIA_PATH = re.compile(r"/static/rich/[a-f0-9]{32}\.[a-z0-9]+$")
+RECORD_PATH = re.compile(r"/static/meeting_doc_[a-f0-9]{32}\.(?:pdf|doc|docx)$")
 
 def make_ticket(path, user_id=None, view="", seconds=7200):
     return jwt.encode({"aud": "download", "path": path, "uid": user_id, "view": view, "iat":time.time(), "exp": int(time.time())+seconds}, SECRET_KEY, algorithm=ALGORITHM)
@@ -21,7 +22,7 @@ class DownloadRequest(BaseModel):
 @router.post("/api/transfers")
 def prepare_download(data: DownloadRequest, request: Request, user: User = Depends(get_current_user)):
     parts = urlsplit(data.path)
-    if parts.scheme or parts.netloc or not (DOWNLOAD_PATH.fullmatch(parts.path) or MEDIA_PATH.fullmatch(parts.path)):
+    if parts.scheme or parts.netloc or not (DOWNLOAD_PATH.fullmatch(parts.path) or MEDIA_PATH.fullmatch(parts.path) or RECORD_PATH.fullmatch(parts.path)):
         raise HTTPException(400, "不支持的下载地址")
     query = parse_qs(parts.query)
     if set(query) - {"structure", "batch", "sort_by", "sort_order", "include_all"}:
@@ -43,7 +44,7 @@ class TransferTicketMiddleware:
             token = scope["path"][len(prefix):]
             claims = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM], audience="download", options={"require": ["exp", "path", "aud"]})
             parts = urlsplit(claims["path"])
-            if not (DOWNLOAD_PATH.fullmatch(parts.path) or MEDIA_PATH.fullmatch(parts.path)):
+            if not (DOWNLOAD_PATH.fullmatch(parts.path) or MEDIA_PATH.fullmatch(parts.path) or RECORD_PATH.fullmatch(parts.path)):
                 raise ValueError
             headers = [(k,v) for k,v in scope.get("headers", []) if k.lower() not in {b"authorization", b"x-view-mode"}]
             if claims.get("uid") is not None:

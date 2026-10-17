@@ -11,9 +11,11 @@
         </el-button>
       </div>
 
+      <div class="collection-toolbar notice-category-filter"><label for="notice-category">公告分类</label><select id="notice-category" v-model="selectedCategory" class="category-filter"><option value="">全部分类</option><option v-for="category in categories" :key="category" :value="category">{{ category }}</option></select><span>{{ filteredNotices.length }} 条公告</span></div>
+
       <el-table 
         v-if="!isMobile"
-        :data="notices" 
+        :data="filteredNotices"
         style="width: 100%" 
         v-loading="loading"
         class="custom-table"
@@ -31,6 +33,7 @@
         <el-table-column prop="title" label="公告标题" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
             <span class="notice-title">{{ row.title }}</span>
+            <el-tag size="small" effect="plain" class="notice-category-tag">{{ row.category || '未分类' }}</el-tag>
             <el-tag v-if="row.is_urgent" type="danger" size="small" effect="dark" class="urgent-tag">紧急</el-tag>
           </template>
         </el-table-column>
@@ -67,9 +70,10 @@
       </el-table>
 
       <div v-else class="mobile-list" v-loading="loading">
-        <el-card v-for="row in notices" :key="row.id" class="mobile-notice-card" shadow="sm">
+        <el-card v-for="row in filteredNotices" :key="row.id" class="mobile-notice-card" shadow="sm">
           <div class="card-header">
             <span class="mobile-notice-title">{{ row.title }}</span>
+            <el-tag size="small" effect="plain">{{ row.category || '未分类' }}</el-tag>
             <el-tag v-if="row.is_urgent" type="danger" size="small" effect="dark" class="urgent-tag mobile-urgent-tag">紧急</el-tag>
           </div>
           <div class="card-body">
@@ -93,7 +97,7 @@
             </template>
           </div>
         </el-card>
-        <el-empty v-if="notices.length === 0" description="暂无通知公告" />
+        <el-empty v-if="filteredNotices.length === 0" description="该分类暂无通知公告" />
       </div>
     </el-card>
 
@@ -111,8 +115,9 @@
             <el-input v-model="noticeForm.title" placeholder="请输入通知标题，建议言简意赅" />
           </el-form-item>
           <el-form-item label="公告正文">
-            <RichEditor v-model="noticeForm.content" />
+            <RichEditor v-model="noticeForm.content" @uploading="attachmentsUploading = $event" />
           </el-form-item>
+          <el-form-item label="公告分类"><el-select v-model="noticeForm.category" filterable allow-create default-first-option placeholder="选择已有分类或输入新分类" style="width:100%"><el-option v-for="category in categories" :key="category" :label="category" :value="category" /></el-select><span class="category-hint">可输入新分类，最长 30 个字；历史公告默认未分类。</span></el-form-item>
           <el-form-item v-if="authStore.isAdmin">
             <el-checkbox v-model="noticeForm.is_urgent" class="urgent-checkbox">
               <span class="urgent-label">设为紧急通知</span>
@@ -124,7 +129,7 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" :icon="Position" @click="handleSubmit">{{ isEdit ? '保存修改' : '立即发布' }}</el-button>
+          <el-button type="primary" :icon="Position" :disabled="attachmentsUploading" @click="handleSubmit">{{ attachmentsUploading ? '附件上传中…' : (isEdit ? '保存修改' : '立即发布') }}</el-button>
         </div>
       </template>
     </el-dialog>
@@ -140,6 +145,7 @@
         <div class="article-header">
           <h2 class="article-title">{{ viewNotice.title }}</h2>
           <div class="article-meta">
+            <el-tag effect="plain">{{ viewNotice.category || '未分类' }}</el-tag>
             <span class="meta-item"><el-icon><User /></el-icon> {{ viewNotice.author_name || '管理员' }}<template v-if="viewNotice.author_qq"> (QQ:{{ viewNotice.author_qq }})</template></span>
             <span class="meta-item"><el-icon><Calendar /></el-icon> {{ formatTime(viewNotice.created_at) }}</span>
           </div>
@@ -160,7 +166,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, View, EditPen, Delete, ChatLineSquare, Position, User, Calendar, Message, ChatDotSquare } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
@@ -168,6 +174,10 @@ import api from '../api'
 
 const authStore = useAuthStore()
 const notices = ref([])
+const selectedCategory=ref('')
+const attachmentsUploading=ref(false)
+const categories=computed(()=>Array.from(new Set(['未分类','班级通知','学习课程','活动安排','资料文件',...notices.value.map(item=>item.category||'未分类')])).sort((a,b)=>a.localeCompare(b,'zh-CN')))
+const filteredNotices=computed(()=>notices.value.filter(item=>!selectedCategory.value||(item.category||'未分类')===selectedCategory.value))
 const loading = ref(false)
 
 // 响应式状态
@@ -180,8 +190,8 @@ const editId = ref(null)
 const viewDialogVisible = ref(false)
 
 // 数据绑定
-const viewNotice = reactive({ title: '', content: '', author_name: '', created_at: '' })
-const noticeForm = reactive({ title: '', content: '', is_urgent: false })
+const viewNotice = reactive({ title: '', content: '', author_name: '', created_at: '', category:'未分类' })
+const noticeForm = reactive({ title: '', content: '', is_urgent: false, category:'未分类' })
 const sendingId = ref(null)
 const qqNotifySendingId = ref(null)
 
@@ -226,6 +236,7 @@ function openCreateDialog() {
   noticeForm.title = ''
   noticeForm.content = ''
   noticeForm.is_urgent = false
+  noticeForm.category = selectedCategory.value || '未分类'
   dialogVisible.value = true
 }
 
@@ -235,10 +246,12 @@ function openEditDialog(row) {
   noticeForm.title = row.title
   noticeForm.content = row.content
   noticeForm.is_urgent = row.is_urgent || false
+  noticeForm.category = row.category || '未分类'
   dialogVisible.value = true
 }
 
 function openViewDialog(row) {
+  viewNotice.category=row.category||'未分类'
   viewNotice.title = row.title
   viewNotice.content = row.content
   viewNotice.author_name = row.author_name
@@ -247,6 +260,7 @@ function openViewDialog(row) {
 }
 
 async function handleSubmit() {
+  if(noticeForm.category.length>30)return ElMessage.warning('分类最长 30 个字')
   if (!noticeForm.title.trim() || !noticeForm.content.trim()) {
     return ElMessage.warning('标题和内容均不能为空')
   }

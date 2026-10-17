@@ -28,7 +28,7 @@ def save_smtp_config(config: dict):
 
 
 
-def _send_emails_batch(to_emails: list[str], subject: str, body: str, db=None, send_type: str = "test", related_id: int = None) -> dict:
+def _send_emails_batch(to_emails: list[str], subject: str, body: str, db=None, send_type: str = "test", related_id: int = None, attachments=None) -> dict:
     """批量发送邮件，分批发送避免触发封禁。每批次 10 人，间隔 3 秒"""
     cfg = load_smtp_config()
     allowed = {h.strip() for h in os.environ.get("SMTP_ALLOWED_HOSTS","smtp.qq.com,smtp.163.com,smtp.126.com,smtp.gmail.com,smtp.office365.com").split(",")}
@@ -53,7 +53,7 @@ def _send_emails_batch(to_emails: list[str], subject: str, body: str, db=None, s
                         _save_email_history(db, email_addr, "", subject, send_type, related_id, "failed", "无效邮箱地址")
                         continue
                     try:
-                        msg = build_email(cfg["username"],email_addr,subject,body,len(to_emails))
+                        msg = build_email(cfg["username"],email_addr,subject,body,len(to_emails),attachments=attachments)
                         raw = msg.as_bytes()
                         # Reserve at most ~32 KiB/s of the uplink for SMTP.
                         started = time.monotonic()
@@ -101,11 +101,11 @@ def _save_email_history(db, email_addr: str, name: str, subject: str, send_type:
 
 
 
-def send_emails_batch(to_emails, subject, body, db=None, send_type="test", related_id=None):
+def send_emails_batch(to_emails, subject, body, db=None, send_type="test", related_id=None, attachments=None):
     from fastapi import HTTPException
     if not _mail_slot.acquire(blocking=False):
         raise HTTPException(503,"已有邮件任务正在发送，请稍后重试",headers={"Retry-After":"30"})
     try:
-        return _send_emails_batch(list(dict.fromkeys(to_emails)),subject,body,db,send_type,related_id)
+        return _send_emails_batch(list(dict.fromkeys(to_emails)),subject,body,db,send_type,related_id,attachments)
     finally:
         _mail_slot.release()

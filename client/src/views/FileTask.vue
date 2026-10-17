@@ -42,6 +42,7 @@
         <el-table-column prop="description" label="任务描述" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
             <RichContent class="task-desc" :content="row.description || '暂无描述'" />
+            <p class="task-format-hint">允许格式：{{ formatRequirement(row) }}</p>
           </template>
         </el-table-column>
         
@@ -97,6 +98,7 @@
           </div>
           <div class="card-body">
             <RichContent class="task-desc" :content="row.description || '暂无描述'" />
+            <p class="task-format-hint">允许格式：{{ formatRequirement(row) }}</p>
             <div class="meta-info">
               <span class="deadline" :class="{ 'is-expired-text': isExpired(row.deadline) }">
                 <el-icon><Timer /></el-icon> {{ formatTime(row.deadline) }}
@@ -331,7 +333,7 @@
           class="drag-upload"
           drag
           multiple
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.jpg,.jpeg,.png,.gif,.webp"
+          :accept="(submitTask.allowed_extensions?.length ? submitTask.allowed_extensions : allExtensions).join(',')"
           :auto-upload="false"
           :disabled="uploading"
           :on-change="handleFileChange"
@@ -342,7 +344,7 @@
             将文件拖到此处，或 <em>点击浏览</em>
           </div>
           <template #tip>
-            <div class="el-upload__tip" style="line-height: 1.5;">支持 PDF、图片、Word、PPT 等格式，每次最多 20 个文件、合计 100 MiB。重新提交将替换本任务的全部旧文件。</div>
+            <div class="el-upload__tip" style="line-height: 1.5;">允许格式：{{ formatRequirement(submitTask) }}。每次最多 20 个文件、合计 100 MiB。重新提交将替换本任务的全部旧文件。</div>
           </template>
         </el-upload>
 
@@ -386,6 +388,7 @@
         <el-form-item label="任务详细描述 (选填)">
           <RichEditor v-model="createForm.description" />
         </el-form-item>
+        <el-form-item label="允许上传的文件格式"><div class="file-format-settings"><p>不勾选表示允许全部支持格式；可选择多个类型。</p><el-checkbox-group v-model="selectedFormatGroups" aria-label="允许上传的文件类型"><el-checkbox v-for="group in formatGroups" :key="group.label" :value="group.label">{{ group.label }}（{{group.extensions.join(' / ')}}）</el-checkbox></el-checkbox-group></div></el-form-item>
         <el-form-item label="关联小组项目">
           <el-select v-model="createForm.group_project_id" placeholder="可选：关联小组作业" clearable style="width: 100%"
           >
@@ -443,7 +446,12 @@ const createForm = reactive({
   naming_pattern: '{sid}-{name}-{seq}-{orig}',
   deadline: '',
   group_project_id: null,
+  allowed_extensions: [],
 })
+const formatGroups=[{label:'压缩包',extensions:['.zip','.rar','.7z']},{label:'PDF',extensions:['.pdf']},{label:'Excel',extensions:['.xls','.xlsx']},{label:'Word',extensions:['.doc','.docx']},{label:'PowerPoint',extensions:['.ppt','.pptx']},{label:'图片',extensions:['.jpg','.jpeg','.png','.gif','.webp']},{label:'文本',extensions:['.txt']}]
+const allExtensions=formatGroups.flatMap(group=>group.extensions)
+const selectedFormatGroups=computed({get:()=>formatGroups.filter(group=>group.extensions.some(ext=>createForm.allowed_extensions.includes(ext))).map(group=>group.label),set:labels=>{createForm.allowed_extensions=formatGroups.filter(group=>labels.includes(group.label)).flatMap(group=>group.extensions)}})
+function formatRequirement(task){return task?.allowed_extensions?.length ? task.allowed_extensions.join('、') : '全部支持格式'}
 
 // 小组项目列表
 const groupProjects = ref([])
@@ -538,6 +546,7 @@ function openCreateDialog() {
   createForm.naming_pattern = '{sid}-{name}-{seq}-{orig}'
   createForm.deadline = ''
   createForm.group_project_id = null
+  createForm.allowed_extensions=[]
   createVisible.value = true
 }
 
@@ -548,6 +557,7 @@ function openEditDialog(task) {
   createForm.naming_pattern = task.naming_pattern
   createForm.deadline = task.deadline ? task.deadline.replace('T', ' ').slice(0, 19) : ''
   createForm.group_project_id = task.group_project_id || null
+  createForm.allowed_extensions=[...(task.allowed_extensions||[])]
   createVisible.value = true
 }
 
@@ -599,6 +609,8 @@ async function handleSubmitFile() {
   if (uploading.value) return
   if (selectedFiles.value.length === 0) return ElMessage.warning('请选择需要上传的文件')
   if (selectedFiles.value.length > 20) return ElMessage.warning('每次最多提交 20 个文件')
+  const allowed = submitTask.value.allowed_extensions?.length ? submitTask.value.allowed_extensions : allExtensions
+  if (selectedFiles.value.some(file => !allowed.includes('.' + file.name.split('.').pop().toLowerCase()))) return ElMessage.warning('文件格式不符合任务要求：' + formatRequirement(submitTask.value))
   if (selectedFiles.value.reduce((total, file) => total + file.size, 0) > 100 * 1024 * 1024) return ElMessage.warning('本次文件合计超过 100 MiB，请压缩后提交')
   uploading.value = true
   uploadPercent.value = 0

@@ -6,7 +6,7 @@
 
 ## Android APK
 
-推送 main 的客户端更新会触发 **Android APK** 工作流。在 GitHub Actions 成功运行的 Artifacts 中下载 `class-system-android-debug`，解压得到 `app-debug.apk` 后传到手机安装。2.2.0 默认连接 `https://8.163.67.49:8000`，禁止明文请求。文件任务和资料的下载使用限时票据交给系统浏览器，避免 WebView 缓冲大文件；网页版持续可用。
+**Android APK** 工作流仅支持手动触发；2.2.1 不构建或更新安卓包。在 GitHub Actions 手动运行成功后的 Artifacts 中下载 `class-system-android-debug`，解压得到 `app-debug.apk` 后传到手机安装。已有 2.2.0 包默认连接 `https://8.163.67.49:8000`，禁止明文请求。文件任务和资料的下载使用限时票据交给系统浏览器，避免 WebView 缓冲大文件；网页版持续可用。
 
 全面屏适配同时使用 `viewport-fit=cover`、Web 安全区和 Capacitor 8 的 `SystemBars.insetsHandling=css`。旧版 APK 需要更新以获得完整原生设置；网页更新不能替换 APK 的原生配置。浏览器测试模拟顶部安全区并验证实际触摸滚动，刘海屏、横屏、手势导航及软键盘仍需在真实设备验证。
 

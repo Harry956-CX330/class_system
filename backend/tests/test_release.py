@@ -30,13 +30,14 @@ class ReleaseTests(unittest.TestCase):
         Base.metadata.create_all(engine)  # Disposable test DB, never the supplied data.db.
         with SessionLocal() as db:
             hashed = get_password_hash("TestPassword123!")
-            db.add_all([User(id=1,username="admin-test",hashed_password=hashed,role="admin",student_id="A"),User(id=2,username="student-test",real_name="张三",hashed_password=hashed,role="student",student_id="20260002"),User(id=3,username="other-test",hashed_password=hashed,role="student",student_id="20260003")])
+            db.add_all([User(id=1,username="admin-test",hashed_password=hashed,role="admin",student_id="A"),User(id=2,username="student-test",real_name="张三",hashed_password=hashed,role="student",student_id="20260002"),User(id=3,username="other-test",hashed_password=hashed,role="student",student_id="20260003"),User(id=4,username="leader-test",hashed_password=hashed,role="student",is_class_leader=True,student_id="20260004")])
             db.commit()
         cls.client = TestClient(app)
         cls.client.__enter__()
         cls.admin = {"Authorization":"Bearer "+create_access_token({"user_id":1})}
         cls.student = {"Authorization":"Bearer "+create_access_token({"user_id":2})}
         cls.other = {"Authorization":"Bearer "+create_access_token({"user_id":3})}
+        cls.leader = {"Authorization":"Bearer "+create_access_token({"user_id":4}), 'X-View-Mode':'admin'}
     @classmethod
     def tearDownClass(cls):
         cls.client.__exit__(None,None,None)
@@ -363,5 +364,93 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(r.status_code,308)
             self.assertEqual(r.headers['location'],'https://8.163.67.49:8000/login?next=dashboard')
             self.assertEqual(self.client.get('/api/health').status_code,200)
+
+    def test_notice_category_persistence_filter_and_permissions(self):
+        from services.business_settings import notice_categories
+        payload={'title':'分类测试','content':'<p>公告正文</p>','category':'学习资料'}
+        self.assertEqual(self.client.post('/api/notices',json=payload,headers=self.student).status_code,403)
+        r=self.client.post('/api/notices',json=payload,headers=self.leader)
+        self.assertEqual(r.status_code,200,r.text);notice=r.json();nid=notice['id']
+        self.assertEqual(notice['category'],'学习资料')
+        self.assertEqual(notice_categories()[str(nid)],'学习资料')
+        filtered=self.client.get('/api/notices?category=学习资料',headers=self.student).json()
+        self.assertIn(nid,[item['id'] for item in filtered])
+        self.assertTrue(all(item['category']=='学习资料' for item in filtered))
+        self.assertEqual(self.client.put(f'/api/notices/{nid}',json={'title':'修改标题'},headers=self.leader).json()['category'],'学习资料')
+        self.assertEqual(self.client.put(f'/api/notices/{nid}',json={'category':'活动'},headers=self.student).status_code,403)
+        self.assertEqual(self.client.put(f'/api/notices/{nid}',json={'category':'未分类'},headers=self.leader).json()['category'],'未分类')
+        self.assertNotIn(str(nid),notice_categories())
+        self.client.delete(f'/api/notices/{nid}',headers=self.admin)
+
+    def test_task_format_restrictions_preserve_prior_submission_and_legacy(self):
+        from services.business_settings import task_formats
+        payload={'title':'格式测试','deadline':'2099-12-31 23:59:00','allowed_extensions':['.PDF','.pdf','.xlsx','.7z']}
+        r=self.client.post('/api/file-tasks',json=payload,headers=self.leader)
+        self.assertEqual(r.status_code,200,r.text);task=r.json()['id']
+        self.assertEqual(task_formats(task),['.7z','.pdf','.xlsx'])
+        self.assertEqual(self.upload(task,('报告.pdf',)).status_code,200)
+        with SessionLocal() as db: old=db.query(FileSubmission).filter_by(task_id=task).one().file_path
+        self.assertEqual(self.upload(task,('替换.pdf','不允许.txt')).status_code,400)
+        with SessionLocal() as db: self.assertEqual(db.query(FileSubmission).filter_by(task_id=task).one().file_path,old)
+        self.assertTrue((root/'uploads'/old).exists())
+        payload.pop('allowed_extensions')
+        self.assertEqual(self.client.put(f'/api/file-tasks/{task}',json=payload,headers=self.leader).json()['allowed_extensions'],['.7z','.pdf','.xlsx'])
+        payload['allowed_extensions']=[]
+        self.assertEqual(self.client.put(f'/api/file-tasks/{task}',json=payload,headers=self.leader).status_code,200)
+        self.assertEqual(self.upload(task,('报告.txt',)).status_code,200)
+        payload['allowed_extensions']=['.exe']
+        self.assertEqual(self.client.put(f'/api/file-tasks/{task}',json=payload,headers=self.leader).status_code,422)
+        self.assertEqual(self.client.post('/api/file-tasks',json=payload,headers=self.student).status_code,403)
+        self.client.delete(f'/api/file-tasks/{task}',headers=self.leader)
+        self.assertEqual(task_formats(task),[])
+
+    def test_leader_can_change_carousel_but_not_issue_password_reset(self):
+        from routers.branding import DEFAULTS
+        self.assertEqual(self.client.put('/api/branding',json={'slides':DEFAULTS},headers=self.student).status_code,403)
+        self.assertEqual(self.client.put('/api/branding',json={'slides':DEFAULTS},headers=self.leader).status_code,200)
+        self.assertEqual(self.client.post('/api/users/2/reset-code',headers=self.leader).status_code,403)
+
+    def test_meeting_record_uses_shared_mailer_and_bounded_attachment_links(self):
+        from models import ClassMeeting,ClassMeetingRecord
+        from datetime import datetime
+        with SessionLocal() as db:
+            meeting=ClassMeeting(title='班会记录测试',meeting_date=datetime(2099,1,1),author_id=1)
+            db.add(meeting);db.flush();mid=meeting.id
+            filename='meeting_doc_'+'1'*32+'.pdf'
+            db.add(ClassMeetingRecord(meeting_id=mid,record_file=filename,record_file_name='班会记录.pdf'));db.commit()
+        path=root/'uploads'/filename;path.write_bytes(b'pdf')
+        with patch('routers.meetings.send_emails_batch',return_value={'success':True}) as send:
+            r=self.client.post(f'/api/class-meetings/{mid}/send-email',headers=self.leader,json={'email':'test@example.test'})
+            self.assertEqual(r.status_code,200,r.text)
+            attachments=send.call_args.kwargs['attachments']
+            self.assertEqual(attachments[0]['user_id'],4)
+        mail=build_email('sender@example.test','to@example.test','班会', '【班会记录】\n请查阅附件',attachments=attachments)
+        self.assertEqual(len(list(mail.iter_attachments())),1)
+        path.write_bytes(b'x'*200000)
+        mail=build_email('sender@example.test','to@example.test','班会', '【班会记录】\n请查阅附件',attachments=attachments)
+        self.assertEqual(len(list(mail.iter_attachments())),0)
+        text=mail.get_body(preferencelist=('plain',)).get_content()
+        import re
+        url=re.search(r'https://class.example.test(/api/transfers/open/\S+)',text).group(1)
+        self.assertEqual(self.client.get(url).content,path.read_bytes())
+        self.assertEqual(self.client.get('/api/transfers/open/'+make_ticket('/static/'+filename)).status_code,401)
+
+    def test_branded_templates_keep_multiple_images_across_channels(self):
+        from services.qq import _send_qq_msg
+        folder=root/'uploads'/'rich';folder.mkdir(exist_ok=True)
+        for char in 'ef': (folder/(char*32+'.webp')).write_bytes(b'small-image')
+        body='【通知公告】\n分类：学习资料\n<p>请查阅资料</p>'+''.join(f'<img src="/static/rich/{char*32}.webp">' for char in 'ef')
+        mail=build_email('sender@example.test','to@example.test','[班级通知] 学习资料',body,50)
+        self.assertTrue(mail['Subject'].startswith('【数科2441智能班务系统】'))
+        self.assertEqual(sum(bool(part.get('Content-ID')) for part in mail.walk()),2)
+        markup=mail.get_body(preferencelist=('html',)).get_content()
+        self.assertIn('#1d4fa8',markup);self.assertIn('北京时间',markup)
+        for endpoint,key in [('send_group_msg','group_id'),('send_private_msg','user_id')]:
+            with patch.dict(os.environ,QQ_UPLOAD_ROOT='/app/class-uploads'),patch('services.qq._call_qq',return_value={'status':'ok'}) as call:
+                _send_qq_msg('http://napcat:3001',endpoint,{key:123,'message':body})
+                segments=call.call_args.args[2]['message']
+                self.assertEqual(sum(item['type']=='image' for item in segments),2)
+                text=segments[0]['data']['text']
+                for value in ['【数科2441智能班务系统】','通知公告','北京时间','https://class.example.test','学习资料']: self.assertIn(value,text)
 
 if __name__=='__main__': unittest.main()

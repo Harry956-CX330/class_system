@@ -190,9 +190,13 @@ def qq_notify_notice(notice_id: int, db: Session = Depends(get_db, scope="functi
     if not cfg: raise HTTPException(status_code=400, detail="QQ提醒未启用或未配置")
     notice = db.query(Notice).filter(Notice.id == notice_id).first()
     if not notice: raise HTTPException(status_code=404, detail="公告不存在")
+    from services.business_settings import notice_categories
+    from html import escape
+    category = escape(notice_categories().get(str(notice_id),'未分类'))
     msg = (
         f"【数科2441班·公告通知】\n"
         f"标题：{notice.title}\n"
+        f"分类：{category}\n"
         f"发布人：{current_user.real_name}（QQ: {current_user.qq_number or '未填写'}）\n\n"
         f"{notice.content}\n\n"
         f"请同学们及时查阅！"

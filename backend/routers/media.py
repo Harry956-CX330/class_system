@@ -74,7 +74,7 @@ def private_static(filename: str, request: Request, db: Session = Depends(get_db
     path = Path(safe_upload_path(filename))
     if not path.is_file():
         raise HTTPException(404, "文件不存在")
-    rich = re.fullmatch(r"rich/[a-f0-9]{32}\.(?:jpg|png|webp|pdf|docx?|xlsx?|pptx?|txt|zip|rar)", filename)
+    rich = re.fullmatch(r"rich/[a-f0-9]{32}\.(?:jpg|png|webp|pdf|docx?|xlsx?|pptx?|txt|zip|rar|7z)", filename)
     if signed and not rich:
         raise HTTPException(403, "无权访问")
     manager = user and (user.role == "admin" or user.is_class_leader)

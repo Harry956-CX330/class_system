@@ -19,7 +19,7 @@ const routes = [
     component: () => import('../views/Dashboard.vue'),
     meta: { requiresAuth: true },
     children: [
-      { path: 'appearance', component: () => import('../views/AppearanceSettings.vue'), meta: {title:'登录页外观',requiresAdmin:true,systemAdmin:true} },
+      { path: 'appearance', component: () => import('../views/AppearanceSettings.vue'), meta: {title:'登录页外观',requiresAdmin:true} },
       { path: '', redirect: '/dashboard' },
       {
         path: 'dashboard',

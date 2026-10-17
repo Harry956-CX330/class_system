@@ -23,11 +23,15 @@ def public_media_url(item):
     if not PUBLIC_BASE_URL.startswith(("https://", "http://")):
         raise HTTPException(503,"请配置 PUBLIC_BASE_URL，以便发送图片和附件下载链接")
     from routers.transfers import make_ticket
-    return PUBLIC_BASE_URL + "/api/transfers/open/" + make_ticket(item["url"],seconds=7*24*3600)
+    return PUBLIC_BASE_URL + "/api/transfers/open/" + make_ticket(item["url"],user_id=item.get('user_id'),seconds=7*24*3600)
 
-def build_email(sender, recipient, subject, body, recipients=1):
-    cleaned = clean_html(body)
-    text,media = content_parts(cleaned)
+def build_email(sender, recipient, subject, body, recipients=1, attachments=None):
+    from services.message_templates import notification_parts, email_document, qq_text, BRAND
+    parts = notification_parts(body, subject)
+    cleaned, text, media = parts['html'], parts['text'], parts['media']
+    for item in attachments or []:
+        media.append(item)
+        cleaned += '<p><a href="'+html.escape(item['url'],quote=True)+'">'+html.escape(item['name'])+'</a></p>'
     budget = min(MAIL_INLINE_BYTES, MAIL_BATCH_BYTES // max(recipients,1))
     small,links = [],[]
     for index,item in enumerate(media):
@@ -54,9 +58,12 @@ def build_email(sender, recipient, subject, body, recipients=1):
                 cleaned = cleaned.replace(item["url"],html.escape(url,quote=True))
             links.append(f"{name}: {url}")
     message = EmailMessage()
-    message["From"],message["To"],message["Subject"] = sender,recipient,subject.replace("\r","").replace("\n","")[:300]
-    message.set_content(text+("\n\n附件与图片（链接有效期 7 天）：\n"+"\n".join(links) if links else ""))
-    message.add_alternative('<div style="white-space:pre-wrap;font-family:sans-serif;line-height:1.7">'+cleaned+'</div>',subtype="html")
+    clean_subject = subject.replace("\r","").replace("\n","")
+    import re
+    clean_subject = re.sub(r'^【[^】]*】\s*', '', clean_subject)
+    message["From"],message["To"],message["Subject"] = sender,recipient,(f'【{BRAND}】'+clean_subject)[:300]
+    message.set_content(qq_text(parts)+("\n\n附件与图片（链接有效期 7 天）：\n"+"\n".join(links) if links else ""))
+    message.add_alternative(email_document(parts,cleaned),subtype="html")
     html_part = message.get_payload()[-1]
     for item,path,name,cid in small:
         major,minor = (mimetypes.guess_type(path.name)[0] or "application/octet-stream").split("/",1)

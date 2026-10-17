@@ -61,8 +61,10 @@ def _send_qq_media(api_url, endpoint, payload):
     message = payload.get("message")
     if not isinstance(message,str):
         return _call_qq(api_url,endpoint,payload)
-    text,media = content_parts(message)
-    segments = [{"type":"text","data":{"text":text}}]
+    from services.message_templates import notification_parts, qq_text
+    parts = notification_parts(message)
+    media = parts['media']
+    segments = [{"type":"text","data":{"text":qq_text(parts)}}]
     files = []
     shared = os.environ.get("QQ_UPLOAD_ROOT","")
     for item in media:

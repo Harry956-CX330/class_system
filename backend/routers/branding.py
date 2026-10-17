@@ -1,4 +1,4 @@
-"""Public, compressed login photographs, managed only by the system administrator."""
+"""Public, compressed login photographs, managed by administrators and class leaders."""
 import io
 import re
 import uuid
@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from PIL import Image, ImageOps, UnidentifiedImageError
-from auth import get_current_user
+from auth import get_current_user, require_admin
 from config import DATA_DIR
 from models import User
 from services.private_settings import read_settings, write_settings, settings_lock
@@ -32,7 +32,7 @@ def get_branding():
         return read_settings("login-branding.json", {"slides":DEFAULTS})
 
 @router.put("/api/branding")
-def set_branding(data: Branding, user=Depends(system_admin)):
+def set_branding(data: Branding, user=Depends(require_admin)):
     with settings_lock:
         for slide in data.slides:
             name = slide.url.removeprefix("/api/branding/images/")
@@ -51,7 +51,7 @@ def set_branding(data: Branding, user=Depends(system_admin)):
     return data
 
 @router.post("/api/branding/images")
-def upload_photo(file: UploadFile = File(...), user=Depends(system_admin)):
+def upload_photo(file: UploadFile = File(...), user=Depends(require_admin)):
     raw = file.file.read(5*1024*1024+1)
     if len(raw) > 5*1024*1024:
         raise HTTPException(413, "图片不能超过 5 MiB")
