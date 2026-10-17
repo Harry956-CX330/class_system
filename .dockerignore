@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.venv
+venv
+env
+
+# SQLite 数据库 (每次部署按需保留)
+backend/data.db
+backend/*.db
+backend/smtp_config.json
+backend/kdocs_config.json
+data/
+uploads/
+temp/
+
+# 上传文件 (生产环境通过 volume 挂载)
+backend/static/uploads/*
+
+# 前端依赖缓存（Dockerfile 会在构建阶段安装依赖）
+client/node_modules
+client/.env*
+backend/static/dist
+client/.vite
+data.db
+*.xls
+*.xlsx
+*.csv
+refactor-audit
+tools
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+
+# 环境变量
+.env

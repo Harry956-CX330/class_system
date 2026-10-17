@@ -1,0 +1,39 @@
+# Secrets and runtime state
+.env
+.env.*
+backend/.env
+backend/smtp_config.json
+backend/kdocs_config.json
+data.db
+backend/data.db
+backend/data/
+backend/static/uploads/
+backend/static/dist/
+data/
+uploads/
+temp/
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Node and build caches
+client/node_modules/
+client/.vite/
+npm-debug.log*
+
+# Local files and source datasets
+*.xls
+*.xlsx
+*.csv
+.trae/
+.vercel/
+*.log
+.DS_Store
+Thumbs.db

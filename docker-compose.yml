@@ -1,0 +1,47 @@
+services:
+  app:
+    build: .
+    container_name: class-system
+    ports:
+      - "8000:8000"
+    cpus: 1.5
+    mem_limit: 1024m
+    pids_limit: 128
+    environment:
+      MAX_UPLOAD_MB: "100"
+      MAX_IMPORT_MB: "5"
+      MAX_CONCURRENT_UPLOADS: "2"
+      MAX_CONCURRENT_DOWNLOADS: "8"
+      MAX_CONCURRENT_ARCHIVES: "1"
+      MAX_ARCHIVE_MB: "2048"
+      MIN_FREE_DISK_MB: "256"
+      THREAD_TOKENS: "8"
+      # 建议部署时注入随机 SECRET_KEY；更换会使当前用户 token 失效。
+      SECRET_KEY: ${SECRET_KEY:?Set a strong random SECRET_KEY before deployment}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/data.db}
+      TEMP_DIR: /app/archive-tmp
+    volumes:
+      # Place the existing, backed-up database at the repository root before startup.
+      - ./data.db:/app/data/data.db
+      # Temporary archives are disk-backed; keep them off the application image layer.
+      - ./temp:/app/archive-tmp
+      # 上传文件持久化
+      - ./uploads:/app/static/uploads
+    restart: unless-stopped
+
+  napcat:
+    image: mlikiowa/napcat-docker:latest
+    container_name: napcat
+    restart: always
+    cpus: 0.5
+    mem_limit: 768m
+    pids_limit: 128
+    ports:
+      - "6099:6099"   # WebUI 管理面板
+      - "3001:3001"   # OneBot HTTP API
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./napcat/config:/app/napcat/config
+      - ./napcat/qq:/app/.config/QQ
+      - ./napcat/plugins:/app/napcat/plugins
