@@ -4,7 +4,7 @@ permissions:
   contents: read
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -14,7 +14,7 @@ jobs:
       - run: python -m unittest discover -s backend/tests -v
       - run: pip-audit -r backend/requirements.txt --progress-spinner off
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: client
@@ -45,7 +45,7 @@ jobs:
           done
           npm run test:e2e
   container:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - run: docker build --tag class-system:verify .
