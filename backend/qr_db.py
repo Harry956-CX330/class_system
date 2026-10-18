@@ -1,8 +1,8 @@
 """独立的扫码签到持久化存储。
 
-签到任务和记录使用单独的 SQLite 文件 qr_checkin.db。记录保存用户名、姓名、
-学号等稳定身份快照，而不是主库自增 ID，因此主库账号删除后不会因 ID 复用而
-把旧签到错挂到新账号，删除账号也无需跨库修改签到库。
+签到任务和记录使用独立的 SQLite 文件 qr_checkin_v2.db。记录保存账号实例标识
+与姓名、学号等快照，而不是主库自增 ID 或可复用的用户名，因此主库账号删除后
+不会因 ID/用户名复用而把旧签到错挂到新账号，删除账号也无需跨库修改签到库。
 """
 import os
 from datetime import datetime, timedelta, timezone
@@ -19,9 +19,19 @@ def beijing_now():
     return datetime.now(BEIJING_TZ).replace(tzinfo=None)
 
 
+def account_key(user_id: int, username: str, created_at) -> str:
+    """按账号创建实例生成稳定标识：id + 用户名 + 创建时间戳。
+
+    用户名可能在账号删除后复用，但同一实例的 created_at 不会变化，因此该标识
+    不会随主库 ID 或用户名复用而指向另一个账号。
+    """
+    stamp = created_at.isoformat() if created_at else str(user_id)
+    return f"{user_id}:{username}:{stamp}"
+
+
 QR_DATABASE_URL = os.environ.get(
     "QR_DATABASE_URL",
-    f"sqlite:///{(DATA_DIR / 'qr_checkin.db').as_posix()}",
+    f"sqlite:///{(DATA_DIR / 'qr_checkin_v2.db').as_posix()}",
 )
 qr_engine = create_engine(
     QR_DATABASE_URL,
@@ -64,7 +74,7 @@ class CheckinTask(QrBase):
     started_at = Column(DateTime, default=beijing_now)
     expires_at = Column(DateTime, nullable=False)
     closed_at = Column(DateTime, nullable=True)
-    author_key = Column(String(50), nullable=False, index=True)     # 发起人用户名快照，不随主库 ID 复用
+    author_key = Column(String(160), nullable=False, index=True)    # 发起人账号实例标识
     author_name = Column(String(50), default="")                    # 发起人姓名快照
     created_at = Column(DateTime, default=beijing_now)
 
@@ -79,7 +89,7 @@ class CheckinRecord(QrBase):
 
     id = Column(Integer, primary_key=True, index=True)
     task_id = Column(Integer, nullable=False, index=True)
-    student_key = Column(String(50), nullable=False, index=True)    # 学生用户名快照
+    student_key = Column(String(160), nullable=False, index=True)   # 学生账号实例标识
     student_name = Column(String(50), default="")
     student_no = Column(String(50), default="")
     device_id = Column(String(128), nullable=True, index=True)

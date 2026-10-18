@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user, require_admin
 from database import get_db
 from models import User
-from qr_db import CheckinRecord, CheckinTask, beijing_now, get_qr_db
+from qr_db import CheckinRecord, CheckinTask, account_key, beijing_now, get_qr_db
 from schemas import QrCheckinManualUpdate, QrCheckinTaskCreate, QrCheckinVerifyRequest
 from services.utils import openpyxl
 
@@ -71,10 +71,6 @@ def _is_dynamic_code_expired(task: CheckinTask) -> bool:
     return age > task.refresh_seconds + DYNAMIC_GRACE_SECONDS
 
 
-def _user_key(user: User) -> str:
-    return user.username or str(user.id)
-
-
 @router.post("/api/qr-checkin/tasks")
 def create_task(data: QrCheckinTaskCreate, db: Session = Depends(get_qr_db),
                 current_user: User = Depends(require_admin)):
@@ -89,7 +85,7 @@ def create_task(data: QrCheckinTaskCreate, db: Session = Depends(get_qr_db),
         status="active",
         started_at=now,
         expires_at=now + timedelta(minutes=data.duration_minutes),
-        author_key=_user_key(current_user),
+        author_key=account_key(current_user.id, current_user.username, current_user.created_at),
         author_name=current_user.real_name or current_user.username,
     )
     db.add(task)
@@ -160,7 +156,7 @@ def list_records(task_id: int, db: Session = Depends(get_qr_db),
     records = {r.student_key: r for r in db.query(CheckinRecord).filter(CheckinRecord.task_id == task_id).all()}
     result = []
     for student in students:
-        record = records.get(_user_key(student))
+        record = records.get(account_key(student.id, student.username, student.created_at))
         result.append({
             "student_id": student.id,
             "name": student.real_name or student.username,
@@ -179,7 +175,7 @@ def manual_update(task_id: int, data: QrCheckinManualUpdate,
     task = db.query(CheckinTask).filter(CheckinTask.id == task_id).first()
     if not task:
         raise HTTPException(404, "签到任务不存在")
-    if task.author_key != _user_key(current_user):
+    if task.author_key != account_key(current_user.id, current_user.username, current_user.created_at):
         raise HTTPException(403, "只有发起该任务的管理员本人才能补签")
     if data.status not in ("manual", "leave"):
         raise HTTPException(400, "无效的签到状态")
@@ -187,7 +183,7 @@ def manual_update(task_id: int, data: QrCheckinManualUpdate,
     if not target:
         raise HTTPException(404, "学生不存在")
 
-    key = _user_key(target)
+    key = account_key(target.id, target.username, target.created_at)
     record = db.query(CheckinRecord).filter(
         CheckinRecord.task_id == task_id, CheckinRecord.student_key == key).first()
     if record is None:
@@ -219,7 +215,7 @@ def verify(data: QrCheckinVerifyRequest, db: Session = Depends(get_qr_db),
     if _is_dynamic_code_expired(task):
         raise HTTPException(400, "二维码已过期，请刷新后重试")
 
-    key = _user_key(current_user)
+    key = account_key(current_user.id, current_user.username, current_user.created_at)
     student_record = db.query(CheckinRecord).filter(
         CheckinRecord.task_id == task.id, CheckinRecord.student_key == key).first()
     if student_record:
@@ -265,7 +261,7 @@ def export_records(task_id: int, db: Session = Depends(get_qr_db),
     records = db.query(CheckinRecord).filter(CheckinRecord.task_id == task_id).all()
     record_by_key = {r.student_key: r for r in records}
     students = main_db.query(User).filter(User.role == "student").order_by(User.sort_order, User.student_id).all()
-    student_by_key = {_user_key(s): s for s in students}
+    student_by_key = {account_key(s.id, s.username, s.created_at): s for s in students}
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -292,7 +288,7 @@ def export_records(task_id: int, db: Session = Depends(get_qr_db),
 
     rows = []
     for student in students:
-        record = record_by_key.pop(_user_key(student), None)
+        record = record_by_key.pop(account_key(student.id, student.username, student.created_at), None)
         rows.append((student.real_name or student.username, student.student_id,
                      record.status if record else "absent", record))
     for record in record_by_key.values():
