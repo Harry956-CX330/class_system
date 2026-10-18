@@ -117,6 +117,18 @@ const routes = [
         meta: { title: '活动管理', requiresAuth: true },
       },
       {
+        path: 'qr-checkin',
+        name: 'QrCheckin',
+        component: () => import('../views/QrCheckin.vue'),
+        meta: { title: '扫码签到', requiresAuth: true },
+      },
+      {
+        path: 'qr-checkin/manage',
+        name: 'QrCheckinManage',
+        component: () => import('../views/QrCheckinManage.vue'),
+        meta: { title: '扫码签到管理', requiresAuth: true, requiresAdmin: true },
+      },
+      {
         path: 'email-settings',
         name: 'EmailSettings',
         component: () => import('../views/SmtpSettings.vue'),

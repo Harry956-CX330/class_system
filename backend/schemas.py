@@ -788,3 +788,30 @@ class EmailHistoryResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class QrCheckinTaskCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    duration_minutes: int = Field(gt=0, le=1440)
+    qr_type: str = "static"  # static / dynamic
+    refresh_seconds: Optional[int] = None
+
+    @model_validator(mode="after")
+    def validate_refresh_seconds(self):
+        if self.qr_type not in ("static", "dynamic"):
+            raise ValueError("二维码类型只能是 static 或 dynamic")
+        if self.qr_type == "dynamic" and self.refresh_seconds not in (3, 5, 10):
+            raise ValueError("动态二维码刷新间隔只能是 3、5 或 10 秒")
+        if self.qr_type == "static":
+            self.refresh_seconds = None
+        return self
+
+
+class QrCheckinVerifyRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=64)
+    device_id: str = Field(min_length=8, max_length=128)
+
+
+class QrCheckinManualUpdate(BaseModel):
+    student_id: int
+    status: str = "manual"  # manual / leave
