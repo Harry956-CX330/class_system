@@ -162,6 +162,8 @@ def manual_update(task_id: int, data: QrCheckinManualUpdate,
     task = db.query(CheckinTask).filter(CheckinTask.id == task_id).first()
     if not task:
         raise HTTPException(404, "签到任务不存在")
+    if task.author_id != current_user.id:
+        raise HTTPException(403, "只有发起该任务的管理员本人才能补签")
     if data.status not in ("manual", "leave"):
         raise HTTPException(400, "无效的签到状态")
     record = db.query(CheckinRecord).filter(
