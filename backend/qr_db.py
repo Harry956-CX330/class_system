@@ -63,7 +63,7 @@ class CheckinTask(QrBase):
     started_at = Column(DateTime, default=beijing_now)
     expires_at = Column(DateTime, nullable=False)
     closed_at = Column(DateTime, nullable=True)
-    author_id = Column(Integer, nullable=False, index=True)
+    author_id = Column(Integer, nullable=True, index=True)
     created_at = Column(DateTime, default=beijing_now)
 
 

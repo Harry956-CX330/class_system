@@ -58,7 +58,7 @@
         <el-table-column label="截止时间" width="170">
           <template #default="{ row }">{{ formatTime(row.expires_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" min-width="320" fixed="right">
+        <el-table-column label="操作" min-width="280">
           <template #default="{ row }">
             <el-button size="small" type="primary" @click="openQr(row)">二维码</el-button>
             <el-button size="small" @click="openRecords(row)">名单</el-button>
@@ -94,7 +94,7 @@
             <el-tag :type="statusTag(row.status)">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="170" fixed="right">
+        <el-table-column label="操作" width="170">
           <template #default="{ row }">
             <el-button size="small" type="success" plain @click="markManual(row)">设为已签到</el-button>
             <el-button size="small" type="warning" plain @click="markLeave(row)">请假</el-button>

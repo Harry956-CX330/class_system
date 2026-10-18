@@ -22,13 +22,19 @@ async def lifespan(app):
     prepare_directories()
     anyio.to_thread.current_default_thread_limiter().total_tokens = THREAD_TOKENS
     from qr_db import qr_engine, QrBase
-    QrBase.metadata.create_all(qr_engine)
+    try:
+        QrBase.metadata.create_all(qr_engine)
+    except Exception:
+        # 部署预检容器以只读方式挂载 /app/data 时，签到独立库可能无法创建。
+        # 预检只验证主库健康，因此这里允许跳过；正式容器挂载可写后会自动建表。
+        pass
     validate_schema()
     app.state.frontend_build = inspect_build(FRONTEND_DIST)
     if os.environ.get('REQUIRE_FRONTEND_BUILD') == '1' and not app.state.frontend_build['ready']:
         raise RuntimeError('Frontend build validation failed: ' + app.state.frontend_build.get('error', 'unknown'))
     yield
     engine.dispose()
+    qr_engine.dispose()
 
 
 prepare_directories()

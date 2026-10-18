@@ -177,7 +177,8 @@ def list_records(task_id: int, db: Session = Depends(get_qr_db),
 
 @router.put("/api/qr-checkin/tasks/{task_id}/manual")
 def manual_update(task_id: int, data: QrCheckinManualUpdate,
-                  db: Session = Depends(get_qr_db), current_user: User = Depends(require_admin)):
+                  db: Session = Depends(get_qr_db), main_db: Session = Depends(get_db),
+                  current_user: User = Depends(require_admin)):
     task = db.query(CheckinTask).filter(CheckinTask.id == task_id).first()
     if not task:
         raise HTTPException(404, "签到任务不存在")
@@ -185,6 +186,9 @@ def manual_update(task_id: int, data: QrCheckinManualUpdate,
         raise HTTPException(403, "只有发起该任务的管理员本人才能补签")
     if data.status not in ("manual", "leave"):
         raise HTTPException(400, "无效的签到状态")
+    target = main_db.query(User).filter(User.id == data.student_id, User.role == "student").first()
+    if not target:
+        raise HTTPException(404, "学生不存在")
     record = db.query(CheckinRecord).filter(
         CheckinRecord.task_id == task_id, CheckinRecord.student_id == data.student_id).first()
     if record is None:

@@ -5,6 +5,7 @@ from auth import require_admin
 from auth import verify_password
 from config import ZIP_BATCH_MAX_SIZE, MAX_IMPORT_BYTES
 from database import get_db
+from qr_db import CheckinRecord, CheckinTask, QrSessionLocal
 from fastapi import APIRouter, Request, Response
 from security import login_accounts
 from auth import SECRET_KEY
@@ -331,6 +332,14 @@ def delete_user(user_id: int, db: Session = Depends(get_db, scope="function"), c
     user = db.query(User).filter(User.id == user_id).first()
     if not user: raise HTTPException(status_code=404, detail="用户不存在")
     if user.role == "admin": raise HTTPException(status_code=400, detail="不能删除管理员账号")
+    # 删除账号时同步清理独立签到库，避免主库 ID 被复用后旧签到记录错挂到新账号。
+    qr = QrSessionLocal()
+    try:
+        qr.query(CheckinRecord).filter(CheckinRecord.student_id == user_id).delete()
+        qr.query(CheckinTask).filter(CheckinTask.author_id == user_id).update({CheckinTask.author_id: None})
+        qr.commit()
+    finally:
+        qr.close()
     db.delete(user)
     db.commit()
     return {"message": "删除成功"}

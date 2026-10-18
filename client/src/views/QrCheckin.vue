@@ -36,6 +36,8 @@ const starting = ref(false)
 const processing = ref(false)
 
 let scanner = null
+let started = false
+let disposed = false
 
 function showResult(title, message, type) {
   ElMessageBox.alert(message, title, {
@@ -65,33 +67,39 @@ async function handleCode(code) {
 }
 
 async function startScan() {
-  if (scanning.value) return
+  if (scanner || disposed) return
   starting.value = true
+  const instance = new Html5Qrcode('qr-reader', { verbose: false })
+  scanner = instance
   try {
-    scanner = new Html5Qrcode('qr-reader', { verbose: false })
-    await scanner.start(
+    await instance.start(
       { facingMode: 'environment' },
       { fps: 10, qrbox: { width: 240, height: 240 } },
       (decodeText) => handleCode(decodeText),
       () => {},
     )
+    started = true
     scanning.value = true
+    if (disposed) {
+      await stopScan()
+    }
   } catch (error) {
-    ElMessage.error('无法打开摄像头，请检查权限或换用浏览器')
+    if (!disposed) ElMessage.error('无法打开摄像头，请检查权限或换用浏览器')
   } finally {
     starting.value = false
+    if (disposed) scanner = null
   }
 }
 
 async function stopScan() {
-  if (scanner && scanning.value) {
-    try {
-      await scanner.stop()
-      scanner.clear()
-    } catch {}
+  const instance = scanner
+  if (instance && started) {
+    try { await instance.stop() } catch {}
+    try { instance.clear() } catch {}
+    scanner = null
   }
+  started = false
   scanning.value = false
-  if (scanner) scanner = null
 }
 
 function handleVisibility() {
@@ -105,6 +113,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  disposed = true
   document.removeEventListener('visibilitychange', handleVisibility)
   stopScan()
 })
