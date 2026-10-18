@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -43,6 +43,8 @@ class User(Base):
     group_assignments = relationship("GroupAssignment", back_populates="student")
     activities = relationship("Activity", back_populates="author")
     activity_participants = relationship("ActivityParticipant", back_populates="student")
+    checkin_tasks = relationship("CheckinTask", back_populates="author")
+    checkin_records = relationship("CheckinRecord", back_populates="student")
 
 
 class Notice(Base):
@@ -428,3 +430,45 @@ class SiteStat(Base):
     total_visits = Column(Integer, nullable=False, default=0)
     total_pv = Column(Integer, nullable=False, default=0)
     updated_at = Column(DateTime, default=beijing_now, onupdate=beijing_now)
+
+
+class CheckinTask(Base):
+    """限时扫码签到任务（静态/动态二维码）"""
+    __tablename__ = "checkin_tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    duration_minutes = Column(Integer, nullable=False)
+    qr_type = Column(String(20), nullable=False, default="static")  # static / dynamic
+    refresh_seconds = Column(Integer, nullable=True)               # dynamic 刷新间隔：3/5/10
+    current_code = Column(String(64), nullable=False, index=True)   # 当前有效签到 code
+    code_updated_at = Column(DateTime, default=beijing_now)
+    status = Column(String(20), nullable=False, default="active")   # active / closed
+    started_at = Column(DateTime, default=beijing_now)
+    expires_at = Column(DateTime, nullable=False)
+    closed_at = Column(DateTime, nullable=True)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=beijing_now)
+
+    author = relationship("User", back_populates="checkin_tasks")
+    records = relationship("CheckinRecord", back_populates="task", cascade="all, delete-orphan")
+
+
+class CheckinRecord(Base):
+    """签到记录：防代签 + 生成名单"""
+    __tablename__ = "checkin_records"
+    __table_args__ = (
+        UniqueConstraint("task_id", "student_id", name="uq_checkin_task_student"),
+        UniqueConstraint("task_id", "device_id", name="uq_checkin_task_device"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("checkin_tasks.id"), nullable=False, index=True)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    device_id = Column(String(128), nullable=True, index=True)
+    status = Column(String(20), nullable=False, default="auto")  # auto / manual / leave
+    sign_time = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=beijing_now)
+
+    task = relationship("CheckinTask", back_populates="records")
+    student = relationship("User", back_populates="checkin_records")

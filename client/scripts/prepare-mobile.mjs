@@ -29,6 +29,10 @@ if (platform === 'android') {
   const path='android/app/src/main/AndroidManifest.xml'
   let manifest=await readFile(path,'utf8')
   if (!manifest.includes('xmlns:tools=')) manifest=manifest.replace('<manifest','<manifest xmlns:tools="http://schemas.android.com/tools"')
+  // 扫码签到需要相机权限：html5-qrcode 在 Capacitor WebView 中调用摄像头。
+  if (!manifest.includes('android.permission.CAMERA')) {
+    manifest = manifest.replace('<application', '<uses-permission android:name="android.permission.CAMERA" />\n    <application')
+  }
   manifest=manifest.replace(/android:usesCleartextTraffic="[^"]*"/g,'').replace(/android:networkSecurityConfig="[^"]*"/g,'')
   manifest=manifest.replace(/tools:replace="[^"]*"/g,'')
   manifest=manifest.replace('<application','<application tools:replace="android:usesCleartextTraffic" android:networkSecurityConfig="@xml/network_security_config" android:usesCleartextTraffic="false"')

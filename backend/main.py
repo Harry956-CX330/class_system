@@ -14,6 +14,7 @@ from security import SecurityMiddleware
 from routers.transfers import TransferTicketMiddleware
 from routers import media, transfers, branding, password_reset
 from routers import users, notices, settings, grades, certificates, activities, groups, social_practices, dashboard, file_tasks, surveys, meetings, resources, textbooks, qq
+from routers import qr_checkin
 
 
 @asynccontextmanager
@@ -38,7 +39,7 @@ app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_credentials
                    allow_methods=["*"], allow_headers=["*"],
                    expose_headers=["Content-Disposition", "Accept-Ranges", "Content-Range", "Retry-After"])
 for module in (users, notices, settings, grades, certificates, activities, groups, social_practices,
-               dashboard, file_tasks, surveys, meetings, resources, textbooks, qq, media, transfers, branding, password_reset):
+               dashboard, file_tasks, surveys, meetings, resources, textbooks, qq, media, transfers, branding, password_reset, qr_checkin):
     app.include_router(module.router)
 
 # Validation failures must never echo passwords or verification codes.

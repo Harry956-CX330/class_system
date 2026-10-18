@@ -78,6 +78,10 @@
             <el-icon><Trophy /></el-icon>
             <span>活动管理</span>
           </el-menu-item>
+          <el-menu-item index="/qr-checkin">
+            <el-icon><Aim /></el-icon>
+            <span>扫码签到</span>
+          </el-menu-item>
           <el-menu-item index="/sheet">
             <el-icon><Collection /></el-icon>
             <span>协作表格</span>
@@ -130,6 +134,10 @@
           <el-menu-item index="/activities">
             <el-icon><Trophy /></el-icon>
             <span>活动管理</span>
+          </el-menu-item>
+          <el-menu-item index="/qr-checkin/manage">
+            <el-icon><Aim /></el-icon>
+            <span>扫码签到</span>
           </el-menu-item>
           <el-menu-item index="/textbook-order">
             <el-icon><Reading /></el-icon>
@@ -550,7 +558,7 @@ import {
   DataAnalysis, Bell, Document, Medal, Stamp, FolderOpened, 
   EditPen, Calendar, Files, FolderAdd, UserFilled, CaretBottom, User, 
   SwitchButton, Trophy, Star, School, Compass, ArrowRight, Sunny, Message, Collection,
-  Fold, Expand, Reading, ChatDotSquare, Switch, QuestionFilled, Picture
+  Fold, Expand, Reading, ChatDotSquare, Switch, QuestionFilled, Picture, Aim
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -590,6 +598,7 @@ const pageTitle = computed(() => {
     '/groups': '分组管理',
     '/class-meetings': '班会管理', '/resources/manage': '资料管理', '/resources': '资料下载',
     '/activities': '活动管理',
+    '/qr-checkin': '扫码签到', '/qr-checkin/manage': '扫码签到管理',
     '/sheet': '在线协作表格',
     '/email-settings': '邮件设置',
     '/qq-settings': 'QQ提醒', '/class-committee': '班委通讯录',
