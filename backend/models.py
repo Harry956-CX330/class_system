@@ -428,5 +428,3 @@ class SiteStat(Base):
     total_visits = Column(Integer, nullable=False, default=0)
     total_pv = Column(Integer, nullable=False, default=0)
     updated_at = Column(DateTime, default=beijing_now, onupdate=beijing_now)
-
-

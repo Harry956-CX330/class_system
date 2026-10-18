@@ -14,27 +14,18 @@ from security import SecurityMiddleware
 from routers.transfers import TransferTicketMiddleware
 from routers import media, transfers, branding, password_reset
 from routers import users, notices, settings, grades, certificates, activities, groups, social_practices, dashboard, file_tasks, surveys, meetings, resources, textbooks, qq
-from routers import qr_checkin
 
 
 @asynccontextmanager
 async def lifespan(app):
     prepare_directories()
     anyio.to_thread.current_default_thread_limiter().total_tokens = THREAD_TOKENS
-    from qr_db import qr_engine, QrBase
-    try:
-        QrBase.metadata.create_all(qr_engine)
-    except Exception:
-        # 部署预检容器以只读方式挂载 /app/data 时，签到独立库可能无法创建。
-        # 预检只验证主库健康，因此这里允许跳过；正式容器挂载可写后会自动建表。
-        pass
     validate_schema()
     app.state.frontend_build = inspect_build(FRONTEND_DIST)
     if os.environ.get('REQUIRE_FRONTEND_BUILD') == '1' and not app.state.frontend_build['ready']:
         raise RuntimeError('Frontend build validation failed: ' + app.state.frontend_build.get('error', 'unknown'))
     yield
     engine.dispose()
-    qr_engine.dispose()
 
 
 prepare_directories()
@@ -47,7 +38,7 @@ app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_credentials
                    allow_methods=["*"], allow_headers=["*"],
                    expose_headers=["Content-Disposition", "Accept-Ranges", "Content-Range", "Retry-After"])
 for module in (users, notices, settings, grades, certificates, activities, groups, social_practices,
-               dashboard, file_tasks, surveys, meetings, resources, textbooks, qq, media, transfers, branding, password_reset, qr_checkin):
+               dashboard, file_tasks, surveys, meetings, resources, textbooks, qq, media, transfers, branding, password_reset):
     app.include_router(module.router)
 
 # Validation failures must never echo passwords or verification codes.
