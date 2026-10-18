@@ -332,16 +332,31 @@ def delete_user(user_id: int, db: Session = Depends(get_db, scope="function"), c
     user = db.query(User).filter(User.id == user_id).first()
     if not user: raise HTTPException(status_code=404, detail="用户不存在")
     if user.role == "admin": raise HTTPException(status_code=400, detail="不能删除管理员账号")
-    # 删除账号时同步清理独立签到库，避免主库 ID 被复用后旧签到记录错挂到新账号。
+    # 先只 flush 主库删除，提前暴露账号与成绩等关联数据的约束错误；此时尚未改动签到库。
+    db.delete(user)
+    try:
+        db.flush()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="该账号存在关联数据，无法删除")
+
+    # 再清理独立签到库：删除该学生的签到记录，任务作者改用不会与真实用户 ID 冲突的哨兵值 0。
     qr = QrSessionLocal()
     try:
         qr.query(CheckinRecord).filter(CheckinRecord.student_id == user_id).delete()
-        qr.query(CheckinTask).filter(CheckinTask.author_id == user_id).update({CheckinTask.author_id: None})
+        qr.query(CheckinTask).filter(CheckinTask.author_id == user_id).update({CheckinTask.author_id: 0})
+        qr.flush()
+    except Exception:
+        qr.rollback()
+        qr.close()
+        db.rollback()
+        raise HTTPException(status_code=500, detail="签到数据清理失败，已取消删除")
+
+    db.commit()
+    try:
         qr.commit()
     finally:
         qr.close()
-    db.delete(user)
-    db.commit()
     return {"message": "删除成功"}
 
 

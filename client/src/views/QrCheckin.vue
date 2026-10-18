@@ -84,6 +84,8 @@ async function startScan() {
       await stopScan()
     }
   } catch (error) {
+    scanner = null
+    started = false
     if (!disposed) ElMessage.error('无法打开摄像头，请检查权限或换用浏览器')
   } finally {
     starting.value = false
