@@ -74,5 +74,12 @@ public class MainActivity extends BridgeActivity {
   console.log('Android project ready. Build: cd android && ./gradlew assembleDebug')
 } else {
   if (url.protocol !== 'https:') throw new Error('iOS archive requires an HTTPS MOBILE_SERVER_URL; use Safari home-screen shortcut until HTTPS is configured.')
+  // 扫码签到需要相机权限：iOS 壳应用必须在 Info.plist 声明 NSCameraUsageDescription。
+  const plistPath='ios/App/App/Info.plist'
+  let plist=await readFile(plistPath,'utf8')
+  if (!plist.includes('NSCameraUsageDescription')) {
+    plist=plist.replace('</dict>\n</plist>', '  <key>NSCameraUsageDescription</key>\n  <string>需要使用相机扫描签到二维码</string>\n</dict>\n</plist>')
+  }
+  await writeFile(plistPath,plist)
   console.log('iOS project ready. Open in Xcode, configure your Apple Team and archive/sign.')
 }
