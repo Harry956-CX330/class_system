@@ -14,7 +14,7 @@ from security import SecurityMiddleware
 from routers.transfers import TransferTicketMiddleware
 from routers import media, transfers, branding, password_reset
 from routers import users, notices, settings, grades, certificates, activities, groups, social_practices, dashboard, file_tasks, surveys, meetings, resources, textbooks, qq
-from routers import qr_checkin
+from routers import qr_checkin, ai
 
 
 @asynccontextmanager
@@ -38,7 +38,7 @@ async def lifespan(app):
 
 
 prepare_directories()
-app = FastAPI(title="数科2441班数据管理系统", version="2.0", lifespan=lifespan)
+app = FastAPI(title="数科2441班数据管理系统", version="2.3.0", lifespan=lifespan)
 app.add_middleware(ResourceLimitsMiddleware)
 app.add_middleware(TransferTicketMiddleware)
 app.add_middleware(SecurityMiddleware)
@@ -47,7 +47,7 @@ app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_credentials
                    allow_methods=["*"], allow_headers=["*"],
                    expose_headers=["Content-Disposition", "Accept-Ranges", "Content-Range", "Retry-After"])
 for module in (users, notices, settings, grades, certificates, activities, groups, social_practices,
-               dashboard, file_tasks, surveys, meetings, resources, textbooks, qq, media, transfers, branding, password_reset, qr_checkin):
+               dashboard, file_tasks, surveys, meetings, resources, textbooks, qq, media, transfers, branding, password_reset, qr_checkin, ai):
     app.include_router(module.router)
 
 # Validation failures must never echo passwords or verification codes.

@@ -158,6 +158,7 @@
       
       <template #footer>
         <div class="dialog-footer center-footer">
+          <el-button type="primary" @click="askAi">AI 解读 / 图片解题</el-button>
           <el-button type="primary" plain @click="viewDialogVisible = false" class="read-btn">已阅 / 关闭</el-button>
         </div>
       </template>
@@ -170,9 +171,12 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, View, EditPen, Delete, ChatLineSquare, Position, User, Calendar, Message, ChatDotSquare } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
+import { useRouter, useRoute } from 'vue-router'
 import api from '../api'
 
 const authStore = useAuthStore()
+const router = useRouter()
+const route = useRoute()
 const notices = ref([])
 const selectedCategory=ref('')
 const attachmentsUploading=ref(false)
@@ -190,7 +194,7 @@ const editId = ref(null)
 const viewDialogVisible = ref(false)
 
 // 数据绑定
-const viewNotice = reactive({ title: '', content: '', author_name: '', created_at: '', category:'未分类' })
+const viewNotice = reactive({ id: null, title: '', content: '', author_name: '', created_at: '', category:'未分类' })
 const noticeForm = reactive({ title: '', content: '', is_urgent: false, category:'未分类' })
 const sendingId = ref(null)
 const qqNotifySendingId = ref(null)
@@ -223,6 +227,8 @@ async function loadNotices() {
   try {
     const res = await api.get('/api/notices')
     notices.value = res.data
+    const selected = notices.value.find(item => item.id === Number(route.query.notice))
+    if (selected) openViewDialog(selected)
   } catch {
     ElMessage.error('加载通知失败')
   } finally {
@@ -251,12 +257,18 @@ function openEditDialog(row) {
 }
 
 function openViewDialog(row) {
+  viewNotice.id = row.id
   viewNotice.category=row.category||'未分类'
   viewNotice.title = row.title
   viewNotice.content = row.content
   viewNotice.author_name = row.author_name
   viewNotice.created_at = row.created_at
   viewDialogVisible.value = true
+}
+
+function askAi() {
+  viewDialogVisible.value = false
+  router.push({ path: '/ai', query: { notice: String(viewNotice.id) } })
 }
 
 async function handleSubmit() {
@@ -624,6 +636,7 @@ async function handleQQNotify(row) {
 }
 
 .center-footer {
+  flex-wrap: wrap;
   justify-content: center;
 }
 

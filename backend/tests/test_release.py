@@ -23,8 +23,9 @@ from services.naming import safe_component, validate_pattern
 from services.notifications import build_email
 from routers.transfers import make_ticket
 from fastapi import HTTPException
+from ai_cases import AICases
 
-class ReleaseTests(unittest.TestCase):
+class ReleaseTests(AICases, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         Base.metadata.create_all(engine)  # Disposable test DB, never the supplied data.db.

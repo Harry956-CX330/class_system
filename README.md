@@ -28,6 +28,10 @@ docker compose up -d --build app
 
 健康检查：`GET /api/health`。部署、资源限额、上传下载约束和数据库兼容行为详见 [DEPLOYMENT.md](DEPLOYMENT.md)。
 
+## AI 班务助手
+
+2.3.0 新增 GLM-4.6V-Flash 操作问答、公告解读和公告图片解题。管理员在「AI 服务设置」配置密钥并测试连接后启用；默认并发 1，支持个人与全站限流，不改数据库结构。使用步骤、图片限制和部署说明见 [AI 使用指南](docs/ai-assistant.md)。
+
 ## 本地开发
 
 后端使用 Python 3.11+，安装 `backend/requirements.txt` 并设置指向完整数据库副本的 `DATABASE_URL`，从 `backend/` 目录以 `uvicorn main:app` 运行。前端使用 Node.js 22+，在 `client/` 目录执行 `npm ci --legacy-peer-deps` 和 `npm run dev`。Vite 将 `/api` 和 `/static` 代理至本地 8000 端口。

@@ -37,6 +37,8 @@
         </el-menu-item>
 
         <!-- 用户端菜单 -->
+        <el-menu-item index="/ai"><el-icon><ChatDotSquare /></el-icon><span>AI 班务助手</span></el-menu-item>
+        <el-menu-item v-if="currentView === 'admin' && authStore.user?.role === 'admin'" index="/ai-settings"><el-icon><Collection /></el-icon><span>AI 服务设置</span></el-menu-item>
         <template v-if="currentView !== 'admin'">
           <el-menu-item index="/grades">
             <el-icon><Document /></el-icon>
