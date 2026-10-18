@@ -102,6 +102,8 @@ def list_tasks(db: Session = Depends(get_qr_db), main_db: Session = Depends(get_
     result = []
     for task in tasks:
         item = _task_dict(task)
+        item["can_manage_records"] = task.author_key == account_key(
+            current_user.id, current_user.username, current_user.created_at)
         records = db.query(CheckinRecord).filter(CheckinRecord.task_id == task.id).all()
         item["total_students"] = total_students
         item["signed_count"] = sum(1 for r in records if r.status in ("auto", "manual"))

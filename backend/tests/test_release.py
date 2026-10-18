@@ -56,6 +56,21 @@ class ReleaseTests(unittest.TestCase):
         r=self.client.post("/api/file-tasks",headers=self.admin,json={"title":"任务/测试", "deadline":"2099-12-31 23:59:00", "naming_pattern":"{name}_{seq}_{orig}"})
         self.assertEqual(r.status_code,200,r.text)
         return r.json()["id"]
+    def test_qr_roster_capability_only_for_task_author(self):
+        response = self.client.post('/api/qr-checkin/tasks', headers=self.admin,
+            json={'name': '权限测试签到', 'duration_minutes': 10, 'qr_type': 'static'})
+        self.assertEqual(response.status_code, 200, response.text)
+        task_id = response.json()['id']
+        try:
+            for headers, allowed in [(self.admin, True), (self.leader, False)]:
+                tasks = self.client.get('/api/qr-checkin/tasks', headers=headers).json()
+                task = next(item for item in tasks if item['id'] == task_id)
+                self.assertEqual(task['can_manage_records'], allowed)
+            denied = self.client.put(f'/api/qr-checkin/tasks/{task_id}/manual', headers=self.leader,
+                json={'student_id': 2, 'status': 'manual'})
+            self.assertEqual(denied.status_code, 403)
+        finally:
+            self.client.delete(f'/api/qr-checkin/tasks/{task_id}', headers=self.admin)
     def upload(self,task,names=("报告.txt",)):
         return self.client.post(f"/api/file-tasks/{task}/submit",headers=self.student,files=[("files",(name,b"test-file-content","text/plain")) for name in names])
     def test_html_allowlist_and_remote_images(self):
