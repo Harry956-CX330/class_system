@@ -27,13 +27,7 @@ cd client
 
 ## 数据库
 
-本地开发已通过 `scripts/init_dev_db.py` 创建 `checkin_tasks` 与 `checkin_records` 两张表。生产环境启动前需执行：
-
-```powershell
-.\.venv\Scripts\python.exe -m sqlite3 backend\data\data.db < backend\sql\qr_checkin.sql
-```
-
-建表语句见 `backend/sql/qr_checkin.sql`。
+扫码签到数据使用独立的 SQLite 文件 `backend/data/qr_checkin.db`，不修改主库 `data.db` 的表结构。应用启动时会在该独立文件中自动创建 `checkin_tasks` 与 `checkin_records` 两张表，因此线上主库的 schema 校验不会受到影响，也不需要手工执行建表 SQL。
 
 ## 使用说明
 
@@ -46,8 +40,16 @@ cd client
 ## 性能优化说明
 
 - `current_code`、`student_id`、`device_id` 均建立索引，扫码校验为单次索引查询。
-- `(task_id, student_id)` 与 `(task_id, device_id)` 唯一约束在数据库层兜底防代签，避免竞态重复写入。
-- 动态二维码刷新直接更新 `current_code`，旧 code 无需删除即失效，保证 <2 秒响应。
+- `(task_id, student_id)` 与 `(task_id, device_id)` 唯一约束在数据库层兜底防重复提交，避免竞态重复写入。
+- 动态二维码刷新直接更新 `current_code`，后端按 `code_updated_at` 校验动态码有效期，旧码超时即失效，保证 <2 秒响应。
+
+## 安全说明
+
+- 响应头 `Permissions-Policy` 已允许本站同源摄像头 `camera=(self)`，麦克风和定位保持禁用。
+- 动态二维码的有效期由后端强制校验（`refresh_seconds + 1 秒网络余量`），不依赖管理页是否持续打开。
+- 设备标识是前端生成的最佳努力防重复手段，用于阻止同一浏览器重复提交；Web 环境无法可靠证明物理设备身份，不能作为强安全边界。
+- Excel 导出时所有用户输入（姓名、学号、设备标识等）都强制按文本写入，防止公式注入。
+- 删除学生不会因签到记录外键报错；历史签到保留在独立库中，导出时已删除用户会显示为「已删除用户」。
 
 ## 移动端与 HTTPS
 

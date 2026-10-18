@@ -21,6 +21,8 @@ from routers import qr_checkin
 async def lifespan(app):
     prepare_directories()
     anyio.to_thread.current_default_thread_limiter().total_tokens = THREAD_TOKENS
+    from qr_db import qr_engine, QrBase
+    QrBase.metadata.create_all(qr_engine)
     validate_schema()
     app.state.frontend_build = inspect_build(FRONTEND_DIST)
     if os.environ.get('REQUIRE_FRONTEND_BUILD') == '1' and not app.state.frontend_build['ready']:

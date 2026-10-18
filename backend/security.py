@@ -56,7 +56,7 @@ class SecurityMiddleware:
             if message["type"] == "http.response.start":
                 headers = list(message.get("headers", []))
                 headers.extend([(b"x-content-type-options", b"nosniff"), (b"x-frame-options", b"DENY"),
-                    (b"referrer-policy", b"no-referrer"), (b"permissions-policy", b"camera=(), microphone=(), geolocation=()"),
+                    (b"referrer-policy", b"no-referrer"), (b"permissions-policy", b"camera=(self), microphone=(), geolocation=()"),
                     (b"content-security-policy", b"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self'; frame-src https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'")])
                 if path.startswith(("/api/", "/static/")) and not path.startswith('/api/branding/images/'):
                     headers = [(k,v) for k,v in headers if k.lower() != b"cache-control"]

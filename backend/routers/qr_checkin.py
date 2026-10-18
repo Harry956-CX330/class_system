@@ -1,4 +1,7 @@
-"""限时扫码签到：静态/动态二维码、设备防代签、名单管理与 Excel 导出。"""
+"""限时扫码签到：静态/动态二维码、设备防重复、名单管理与 Excel 导出。
+
+签到数据存放在独立的 qr_checkin.db（见 qr_db.py），用户信息仍从主库读取。
+"""
 import base64
 import io
 import secrets
@@ -12,15 +15,15 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_admin
 from database import get_db
-from models import CheckinRecord, CheckinTask, User, beijing_now
+from models import User
+from qr_db import CheckinRecord, CheckinTask, beijing_now, get_qr_db
 from schemas import QrCheckinManualUpdate, QrCheckinTaskCreate, QrCheckinVerifyRequest
 from services.utils import openpyxl
 
 router = APIRouter(tags=["qr-checkin"])
 
-QR_TYPE_STATIC = "static"
-QR_TYPE_DYNAMIC = "dynamic"
-ALLOWED_REFRESH_SECONDS = (3, 5, 10)
+# 动态二维码在 refresh_seconds 之外再留 1 秒网络延迟余量。
+DYNAMIC_GRACE_SECONDS = 1
 
 
 def _new_code() -> str:
@@ -39,7 +42,7 @@ def _qr_data_url(code: str) -> str:
     return f"data:image/png;base64,{payload}"
 
 
-def _task_dict(task: CheckinTask, with_qr: bool = False) -> dict:
+def _task_dict(task: CheckinTask, author_name: str = "", with_qr: bool = False) -> dict:
     data = {
         "id": task.id,
         "name": task.name,
@@ -51,7 +54,7 @@ def _task_dict(task: CheckinTask, with_qr: bool = False) -> dict:
         "expires_at": task.expires_at,
         "closed_at": task.closed_at,
         "author_id": task.author_id,
-        "author_name": task.author.real_name or task.author.username if task.author else "",
+        "author_name": author_name,
         "created_at": task.created_at,
     }
     if with_qr:
@@ -60,8 +63,22 @@ def _task_dict(task: CheckinTask, with_qr: bool = False) -> dict:
     return data
 
 
+def _author_name(main_db: Session, author_id: int) -> str:
+    user = main_db.query(User).filter(User.id == author_id).first()
+    if not user:
+        return "已删除用户"
+    return user.real_name or user.username
+
+
+def _is_dynamic_code_expired(task: CheckinTask) -> bool:
+    if task.qr_type != "dynamic" or not task.refresh_seconds:
+        return False
+    age = (beijing_now() - task.code_updated_at).total_seconds()
+    return age > task.refresh_seconds + DYNAMIC_GRACE_SECONDS
+
+
 @router.post("/api/qr-checkin/tasks")
-def create_task(data: QrCheckinTaskCreate, db: Session = Depends(get_db, scope="function"),
+def create_task(data: QrCheckinTaskCreate, db: Session = Depends(get_qr_db),
                 current_user: User = Depends(require_admin)):
     now = beijing_now()
     task = CheckinTask(
@@ -79,18 +96,21 @@ def create_task(data: QrCheckinTaskCreate, db: Session = Depends(get_db, scope="
     db.add(task)
     db.commit()
     db.refresh(task)
-    return _task_dict(task, with_qr=True)
+    return _task_dict(task, current_user.real_name or current_user.username, with_qr=True)
 
 
 @router.get("/api/qr-checkin/tasks")
-def list_tasks(db: Session = Depends(get_db, scope="function"),
+def list_tasks(db: Session = Depends(get_qr_db), main_db: Session = Depends(get_db),
                current_user: User = Depends(require_admin)):
     tasks = db.query(CheckinTask).order_by(CheckinTask.created_at.desc()).all()
+    total_students = main_db.query(User).filter(User.role == "student").count()
+    authors = main_db.query(User).filter(User.id.in_([t.author_id for t in tasks])).all() if tasks else []
+    author_map = {u.id: (u.real_name or u.username) for u in authors}
     result = []
     for task in tasks:
-        item = _task_dict(task)
-        records = task.records
-        item["total_students"] = db.query(User).filter(User.role == "student").count()
+        item = _task_dict(task, author_map.get(task.author_id, "已删除用户"))
+        records = db.query(CheckinRecord).filter(CheckinRecord.task_id == task.id).all()
+        item["total_students"] = total_students
         item["signed_count"] = sum(1 for r in records if r.status in ("auto", "manual"))
         item["leave_count"] = sum(1 for r in records if r.status == "leave")
         result.append(item)
@@ -98,17 +118,17 @@ def list_tasks(db: Session = Depends(get_db, scope="function"),
 
 
 @router.get("/api/qr-checkin/tasks/{task_id}")
-def get_task(task_id: int, db: Session = Depends(get_db, scope="function"),
-             current_user: User = Depends(require_admin)):
+def get_task(task_id: int, db: Session = Depends(get_qr_db),
+             main_db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     task = db.query(CheckinTask).filter(CheckinTask.id == task_id).first()
     if not task:
         raise HTTPException(404, "签到任务不存在")
-    return _task_dict(task, with_qr=True)
+    return _task_dict(task, _author_name(main_db, task.author_id), with_qr=True)
 
 
 @router.post("/api/qr-checkin/tasks/{task_id}/refresh-code")
-def refresh_code(task_id: int, db: Session = Depends(get_db, scope="function"),
-                 current_user: User = Depends(require_admin)):
+def refresh_code(task_id: int, db: Session = Depends(get_qr_db),
+                 main_db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     task = db.query(CheckinTask).filter(CheckinTask.id == task_id).first()
     if not task:
         raise HTTPException(404, "签到任务不存在")
@@ -117,12 +137,12 @@ def refresh_code(task_id: int, db: Session = Depends(get_db, scope="function"),
     task.current_code = _new_code()
     task.code_updated_at = beijing_now()
     db.commit()
-    return _task_dict(task, with_qr=True)
+    return _task_dict(task, _author_name(main_db, task.author_id), with_qr=True)
 
 
 @router.post("/api/qr-checkin/tasks/{task_id}/close")
-def close_task(task_id: int, db: Session = Depends(get_db, scope="function"),
-               current_user: User = Depends(require_admin)):
+def close_task(task_id: int, db: Session = Depends(get_qr_db),
+               main_db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     task = db.query(CheckinTask).filter(CheckinTask.id == task_id).first()
     if not task:
         raise HTTPException(404, "签到任务不存在")
@@ -130,17 +150,17 @@ def close_task(task_id: int, db: Session = Depends(get_db, scope="function"),
         task.status = "closed"
         task.closed_at = beijing_now()
         db.commit()
-    return _task_dict(task)
+    return _task_dict(task, _author_name(main_db, task.author_id))
 
 
 @router.get("/api/qr-checkin/tasks/{task_id}/records")
-def list_records(task_id: int, db: Session = Depends(get_db, scope="function"),
-                 current_user: User = Depends(require_admin)):
+def list_records(task_id: int, db: Session = Depends(get_qr_db),
+                 main_db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     task = db.query(CheckinTask).filter(CheckinTask.id == task_id).first()
     if not task:
         raise HTTPException(404, "签到任务不存在")
-    students = db.query(User).filter(User.role == "student").order_by(User.sort_order, User.student_id).all()
-    records = {r.student_id: r for r in task.records}
+    students = main_db.query(User).filter(User.role == "student").order_by(User.sort_order, User.student_id).all()
+    records = {r.student_id: r for r in db.query(CheckinRecord).filter(CheckinRecord.task_id == task_id).all()}
     result = []
     for student in students:
         record = records.get(student.id)
@@ -152,13 +172,12 @@ def list_records(task_id: int, db: Session = Depends(get_db, scope="function"),
             "sign_time": record.sign_time if record else None,
             "device_id": record.device_id if record else "",
         })
-    return {"task": _task_dict(task), "records": result}
+    return {"task": _task_dict(task, _author_name(main_db, task.author_id)), "records": result}
 
 
 @router.put("/api/qr-checkin/tasks/{task_id}/manual")
 def manual_update(task_id: int, data: QrCheckinManualUpdate,
-                  db: Session = Depends(get_db, scope="function"),
-                  current_user: User = Depends(require_admin)):
+                  db: Session = Depends(get_qr_db), current_user: User = Depends(require_admin)):
     task = db.query(CheckinTask).filter(CheckinTask.id == task_id).first()
     if not task:
         raise HTTPException(404, "签到任务不存在")
@@ -183,7 +202,7 @@ def manual_update(task_id: int, data: QrCheckinManualUpdate,
 
 
 @router.post("/api/qr-checkin/verify")
-def verify(data: QrCheckinVerifyRequest, db: Session = Depends(get_db, scope="function"),
+def verify(data: QrCheckinVerifyRequest, db: Session = Depends(get_qr_db),
            current_user: User = Depends(get_current_user)):
     code = data.code.strip()
     task = db.query(CheckinTask).filter(CheckinTask.current_code == code).first()
@@ -193,12 +212,16 @@ def verify(data: QrCheckinVerifyRequest, db: Session = Depends(get_db, scope="fu
         raise HTTPException(400, "该签到已关闭")
     if beijing_now() > task.expires_at:
         raise HTTPException(400, "签到已过期")
+    if _is_dynamic_code_expired(task):
+        raise HTTPException(400, "二维码已过期，请刷新后重试")
 
     student_record = db.query(CheckinRecord).filter(
         CheckinRecord.task_id == task.id, CheckinRecord.student_id == current_user.id).first()
     if student_record:
         raise HTTPException(400, "该学生已签到，请勿重复签到")
 
+    # Web 环境无法可靠证明物理设备身份，device_id 只能作为“同一浏览器重复提交”的
+    # 最佳努力防护，不应作为强安全边界。
     device_record = db.query(CheckinRecord).filter(
         CheckinRecord.task_id == task.id, CheckinRecord.device_id == data.device_id,
         CheckinRecord.status == "auto").first()
@@ -216,16 +239,24 @@ def verify(data: QrCheckinVerifyRequest, db: Session = Depends(get_db, scope="fu
     return {"message": "签到成功", "status": "auto", "task_name": task.name}
 
 
+def _safe_text_cell(ws, row: int, col: int, value):
+    cell = ws.cell(row=row, column=col, value=value)
+    # 强制按文本写入，避免以 = + - @ 开头的用户输入被当作公式。
+    cell.data_type = "s"
+    return cell
+
+
 @router.get("/api/qr-checkin/tasks/{task_id}/export")
-def export_records(task_id: int, db: Session = Depends(get_db, scope="function"),
-                   current_user: User = Depends(require_admin)):
+def export_records(task_id: int, db: Session = Depends(get_qr_db),
+                   main_db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     task = db.query(CheckinTask).filter(CheckinTask.id == task_id).first()
     if not task:
         raise HTTPException(404, "签到任务不存在")
     if openpyxl is None:
         raise HTTPException(500, "服务器未安装 openpyxl")
-    students = db.query(User).filter(User.role == "student").order_by(User.sort_order, User.student_id).all()
-    records = {r.student_id: r for r in task.records}
+
+    records = {r.student_id: r for r in db.query(CheckinRecord).filter(CheckinRecord.task_id == task_id).all()}
+    students = main_db.query(User).filter(User.role == "student").order_by(User.sort_order, User.student_id).all()
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -249,15 +280,23 @@ def export_records(task_id: int, db: Session = Depends(get_db, scope="function")
 
     status_map = {"auto": "已签到", "manual": "已签到", "leave": "请假", "absent": "缺勤"}
     method_map = {"auto": "扫码自动签到", "manual": "管理员手动补签", "leave": "请假", "absent": "缺勤（未签到）"}
-    for index, student in enumerate(students, 1):
-        record = records.get(student.id)
-        status = record.status if record else "absent"
-        row = [index, student.real_name or student.username, student.student_id,
-               status_map.get(status, status), method_map.get(status, status),
-               record.sign_time.strftime("%Y-%m-%d %H:%M:%S") if record and record.sign_time else "",
-               record.device_id if record and record.device_id else ""]
-        for col, value in enumerate(row, 1):
-            cell = ws.cell(row=index + 1, column=col, value=value)
+
+    rows = []
+    for student in students:
+        record = records.pop(student.id, None)
+        rows.append((student.real_name or student.username, student.student_id,
+                     record.status if record else "absent", record))
+    for student_id, record in records.items():
+        rows.append(("已删除用户", str(student_id), record.status, record))
+    rows.sort(key=lambda r: (r[2] == "absent", r[1]))
+
+    for index, (name, student_no, status, record) in enumerate(rows, 1):
+        values = [index, name, student_no, status_map.get(status, status),
+                  method_map.get(status, status),
+                  record.sign_time.strftime("%Y-%m-%d %H:%M:%S") if record and record.sign_time else "",
+                  record.device_id if record and record.device_id else ""]
+        for col, value in enumerate(values, 1):
+            cell = _safe_text_cell(ws, index + 1, col, str(value))
             cell.alignment = center
             cell.border = thin_border
         if status == "absent":
@@ -279,11 +318,12 @@ def export_records(task_id: int, db: Session = Depends(get_db, scope="function")
 
 
 @router.delete("/api/qr-checkin/tasks/{task_id}")
-def delete_task(task_id: int, db: Session = Depends(get_db, scope="function"),
+def delete_task(task_id: int, db: Session = Depends(get_qr_db),
                 current_user: User = Depends(require_admin)):
     task = db.query(CheckinTask).filter(CheckinTask.id == task_id).first()
     if not task:
         raise HTTPException(404, "签到任务不存在")
+    db.query(CheckinRecord).filter(CheckinRecord.task_id == task_id).delete()
     db.delete(task)
     db.commit()
     return {"message": "签到记录已删除"}
