@@ -1,7 +1,8 @@
 """独立的扫码签到持久化存储。
 
-签到任务和记录使用单独的 SQLite 文件 qr_checkin.db，不修改主库 data.db 的
-表结构，从而不触发主库启动时的 schema 校验失败。
+签到任务和记录使用单独的 SQLite 文件 qr_checkin.db。记录保存用户名、姓名、
+学号等稳定身份快照，而不是主库自增 ID，因此主库账号删除后不会因 ID 复用而
+把旧签到错挂到新账号，删除账号也无需跨库修改签到库。
 """
 import os
 from datetime import datetime, timedelta, timezone
@@ -63,7 +64,8 @@ class CheckinTask(QrBase):
     started_at = Column(DateTime, default=beijing_now)
     expires_at = Column(DateTime, nullable=False)
     closed_at = Column(DateTime, nullable=True)
-    author_id = Column(Integer, nullable=True, index=True)
+    author_key = Column(String(50), nullable=False, index=True)     # 发起人用户名快照，不随主库 ID 复用
+    author_name = Column(String(50), default="")                    # 发起人姓名快照
     created_at = Column(DateTime, default=beijing_now)
 
 
@@ -71,13 +73,15 @@ class CheckinRecord(QrBase):
     """签到记录：防重复提交 + 生成名单"""
     __tablename__ = "checkin_records"
     __table_args__ = (
-        UniqueConstraint("task_id", "student_id", name="uq_checkin_task_student"),
+        UniqueConstraint("task_id", "student_key", name="uq_checkin_task_student"),
         UniqueConstraint("task_id", "device_id", name="uq_checkin_task_device"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
     task_id = Column(Integer, nullable=False, index=True)
-    student_id = Column(Integer, nullable=False, index=True)
+    student_key = Column(String(50), nullable=False, index=True)    # 学生用户名快照
+    student_name = Column(String(50), default="")
+    student_no = Column(String(50), default="")
     device_id = Column(String(128), nullable=True, index=True)
     status = Column(String(20), nullable=False, default="auto")  # auto / manual / leave
     sign_time = Column(DateTime, nullable=True)

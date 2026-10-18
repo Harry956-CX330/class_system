@@ -1,6 +1,7 @@
 """限时扫码签到：静态/动态二维码、设备防重复、名单管理与 Excel 导出。
 
-签到数据存放在独立的 qr_checkin.db（见 qr_db.py），用户信息仍从主库读取。
+签到数据存放在独立的 qr_checkin.db（见 qr_db.py），记录使用用户名等稳定身份
+快照关联学生，而不是主库自增 ID，避免账号删除后 ID 复用导致记录错挂。
 """
 import base64
 import io
@@ -42,7 +43,7 @@ def _qr_data_url(code: str) -> str:
     return f"data:image/png;base64,{payload}"
 
 
-def _task_dict(task: CheckinTask, author_name: str = "", with_qr: bool = False) -> dict:
+def _task_dict(task: CheckinTask, with_qr: bool = False) -> dict:
     data = {
         "id": task.id,
         "name": task.name,
@@ -53,8 +54,8 @@ def _task_dict(task: CheckinTask, author_name: str = "", with_qr: bool = False) 
         "started_at": task.started_at,
         "expires_at": task.expires_at,
         "closed_at": task.closed_at,
-        "author_id": task.author_id,
-        "author_name": author_name,
+        "author_key": task.author_key,
+        "author_name": task.author_name,
         "created_at": task.created_at,
     }
     if with_qr:
@@ -63,18 +64,15 @@ def _task_dict(task: CheckinTask, author_name: str = "", with_qr: bool = False) 
     return data
 
 
-def _author_name(main_db: Session, author_id: int) -> str:
-    user = main_db.query(User).filter(User.id == author_id).first()
-    if not user:
-        return "已删除用户"
-    return user.real_name or user.username
-
-
 def _is_dynamic_code_expired(task: CheckinTask) -> bool:
     if task.qr_type != "dynamic" or not task.refresh_seconds:
         return False
     age = (beijing_now() - task.code_updated_at).total_seconds()
     return age > task.refresh_seconds + DYNAMIC_GRACE_SECONDS
+
+
+def _user_key(user: User) -> str:
+    return user.username or str(user.id)
 
 
 @router.post("/api/qr-checkin/tasks")
@@ -91,12 +89,13 @@ def create_task(data: QrCheckinTaskCreate, db: Session = Depends(get_qr_db),
         status="active",
         started_at=now,
         expires_at=now + timedelta(minutes=data.duration_minutes),
-        author_id=current_user.id,
+        author_key=_user_key(current_user),
+        author_name=current_user.real_name or current_user.username,
     )
     db.add(task)
     db.commit()
     db.refresh(task)
-    return _task_dict(task, current_user.real_name or current_user.username, with_qr=True)
+    return _task_dict(task, with_qr=True)
 
 
 @router.get("/api/qr-checkin/tasks")
@@ -104,11 +103,9 @@ def list_tasks(db: Session = Depends(get_qr_db), main_db: Session = Depends(get_
                current_user: User = Depends(require_admin)):
     tasks = db.query(CheckinTask).order_by(CheckinTask.created_at.desc()).all()
     total_students = main_db.query(User).filter(User.role == "student").count()
-    authors = main_db.query(User).filter(User.id.in_([t.author_id for t in tasks])).all() if tasks else []
-    author_map = {u.id: (u.real_name or u.username) for u in authors}
     result = []
     for task in tasks:
-        item = _task_dict(task, author_map.get(task.author_id, "已删除用户"))
+        item = _task_dict(task)
         records = db.query(CheckinRecord).filter(CheckinRecord.task_id == task.id).all()
         item["total_students"] = total_students
         item["signed_count"] = sum(1 for r in records if r.status in ("auto", "manual"))
@@ -119,16 +116,16 @@ def list_tasks(db: Session = Depends(get_qr_db), main_db: Session = Depends(get_
 
 @router.get("/api/qr-checkin/tasks/{task_id}")
 def get_task(task_id: int, db: Session = Depends(get_qr_db),
-             main_db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+             current_user: User = Depends(require_admin)):
     task = db.query(CheckinTask).filter(CheckinTask.id == task_id).first()
     if not task:
         raise HTTPException(404, "签到任务不存在")
-    return _task_dict(task, _author_name(main_db, task.author_id), with_qr=True)
+    return _task_dict(task, with_qr=True)
 
 
 @router.post("/api/qr-checkin/tasks/{task_id}/refresh-code")
 def refresh_code(task_id: int, db: Session = Depends(get_qr_db),
-                 main_db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+                 current_user: User = Depends(require_admin)):
     task = db.query(CheckinTask).filter(CheckinTask.id == task_id).first()
     if not task:
         raise HTTPException(404, "签到任务不存在")
@@ -137,12 +134,12 @@ def refresh_code(task_id: int, db: Session = Depends(get_qr_db),
     task.current_code = _new_code()
     task.code_updated_at = beijing_now()
     db.commit()
-    return _task_dict(task, _author_name(main_db, task.author_id), with_qr=True)
+    return _task_dict(task, with_qr=True)
 
 
 @router.post("/api/qr-checkin/tasks/{task_id}/close")
 def close_task(task_id: int, db: Session = Depends(get_qr_db),
-               main_db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+               current_user: User = Depends(require_admin)):
     task = db.query(CheckinTask).filter(CheckinTask.id == task_id).first()
     if not task:
         raise HTTPException(404, "签到任务不存在")
@@ -150,7 +147,7 @@ def close_task(task_id: int, db: Session = Depends(get_qr_db),
         task.status = "closed"
         task.closed_at = beijing_now()
         db.commit()
-    return _task_dict(task, _author_name(main_db, task.author_id))
+    return _task_dict(task)
 
 
 @router.get("/api/qr-checkin/tasks/{task_id}/records")
@@ -160,10 +157,10 @@ def list_records(task_id: int, db: Session = Depends(get_qr_db),
     if not task:
         raise HTTPException(404, "签到任务不存在")
     students = main_db.query(User).filter(User.role == "student").order_by(User.sort_order, User.student_id).all()
-    records = {r.student_id: r for r in db.query(CheckinRecord).filter(CheckinRecord.task_id == task_id).all()}
+    records = {r.student_key: r for r in db.query(CheckinRecord).filter(CheckinRecord.task_id == task_id).all()}
     result = []
     for student in students:
-        record = records.get(student.id)
+        record = records.get(_user_key(student))
         result.append({
             "student_id": student.id,
             "name": student.real_name or student.username,
@@ -172,7 +169,7 @@ def list_records(task_id: int, db: Session = Depends(get_qr_db),
             "sign_time": record.sign_time if record else None,
             "device_id": record.device_id if record else "",
         })
-    return {"task": _task_dict(task, _author_name(main_db, task.author_id)), "records": result}
+    return {"task": _task_dict(task), "records": result}
 
 
 @router.put("/api/qr-checkin/tasks/{task_id}/manual")
@@ -182,17 +179,20 @@ def manual_update(task_id: int, data: QrCheckinManualUpdate,
     task = db.query(CheckinTask).filter(CheckinTask.id == task_id).first()
     if not task:
         raise HTTPException(404, "签到任务不存在")
-    if task.author_id != current_user.id:
+    if task.author_key != _user_key(current_user):
         raise HTTPException(403, "只有发起该任务的管理员本人才能补签")
     if data.status not in ("manual", "leave"):
         raise HTTPException(400, "无效的签到状态")
     target = main_db.query(User).filter(User.id == data.student_id, User.role == "student").first()
     if not target:
         raise HTTPException(404, "学生不存在")
+
+    key = _user_key(target)
     record = db.query(CheckinRecord).filter(
-        CheckinRecord.task_id == task_id, CheckinRecord.student_id == data.student_id).first()
+        CheckinRecord.task_id == task_id, CheckinRecord.student_key == key).first()
     if record is None:
-        record = CheckinRecord(task_id=task_id, student_id=data.student_id, status=data.status)
+        record = CheckinRecord(task_id=task_id, student_key=key, student_name=target.real_name or target.username,
+                               student_no=target.student_id, status=data.status)
         db.add(record)
     record.status = data.status
     if data.status == "manual":
@@ -219,8 +219,9 @@ def verify(data: QrCheckinVerifyRequest, db: Session = Depends(get_qr_db),
     if _is_dynamic_code_expired(task):
         raise HTTPException(400, "二维码已过期，请刷新后重试")
 
+    key = _user_key(current_user)
     student_record = db.query(CheckinRecord).filter(
-        CheckinRecord.task_id == task.id, CheckinRecord.student_id == current_user.id).first()
+        CheckinRecord.task_id == task.id, CheckinRecord.student_key == key).first()
     if student_record:
         raise HTTPException(400, "该学生已签到，请勿重复签到")
 
@@ -232,7 +233,9 @@ def verify(data: QrCheckinVerifyRequest, db: Session = Depends(get_qr_db),
     if device_record:
         raise HTTPException(400, "该设备已完成本次签到")
 
-    record = CheckinRecord(task_id=task.id, student_id=current_user.id,
+    record = CheckinRecord(task_id=task.id, student_key=key,
+                           student_name=current_user.real_name or current_user.username,
+                           student_no=current_user.student_id,
                            device_id=data.device_id, status="auto", sign_time=beijing_now())
     db.add(record)
     try:
@@ -259,8 +262,10 @@ def export_records(task_id: int, db: Session = Depends(get_qr_db),
     if openpyxl is None:
         raise HTTPException(500, "服务器未安装 openpyxl")
 
-    records = {r.student_id: r for r in db.query(CheckinRecord).filter(CheckinRecord.task_id == task_id).all()}
+    records = db.query(CheckinRecord).filter(CheckinRecord.task_id == task_id).all()
+    record_by_key = {r.student_key: r for r in records}
     students = main_db.query(User).filter(User.role == "student").order_by(User.sort_order, User.student_id).all()
+    student_by_key = {_user_key(s): s for s in students}
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -287,11 +292,11 @@ def export_records(task_id: int, db: Session = Depends(get_qr_db),
 
     rows = []
     for student in students:
-        record = records.pop(student.id, None)
+        record = record_by_key.pop(_user_key(student), None)
         rows.append((student.real_name or student.username, student.student_id,
                      record.status if record else "absent", record))
-    for student_id, record in records.items():
-        rows.append(("已删除用户", str(student_id), record.status, record))
+    for record in record_by_key.values():
+        rows.append((record.student_name or "已删除用户", record.student_no or "", record.status, record))
     rows.sort(key=lambda r: (r[2] == "absent", r[1]))
 
     for index, (name, student_no, status, record) in enumerate(rows, 1):
