@@ -312,7 +312,7 @@ function onTabChange(name) {
 async function handleResendAll() {
   try {
     await ElMessageBox.confirm(
-      `确定要重新发送所有失败的邮件吗？共 ${failedCount.value} 封。`,
+      `下一步选择需要重发的收件人，当前失败记录共 ${failedCount.value} 封。`,
       '确认重发',
       { confirmButtonText: '确定重发', cancelButtonText: '取消', type: 'warning' }
     )
@@ -331,6 +331,7 @@ async function handleResendAll() {
     }
     loadHistory()
   } catch (err) {
+    if (err?.__notificationCancelled) return
     ElMessage.error(err.response?.data?.detail || '重发失败')
   } finally {
     resending.value = false

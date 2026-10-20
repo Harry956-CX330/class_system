@@ -1,3 +1,4 @@
+from services.delivery import DeliverySelection, delivery_selection, choose_users
 from auth import require_admin
 from config import KDOCS_CONFIG_PATH
 from config import ZIP_BATCH_MAX_SIZE, MAX_IMPORT_BYTES
@@ -111,12 +112,18 @@ def get_email_history(
 
 
 @router.post("/api/email-history/resend")
-def resend_failed_emails(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
+def resend_failed_emails(selection: DeliverySelection = Depends(delivery_selection), db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
     """一键重发所有发送失败的邮件"""
     failed_records = db.query(EmailHistory).filter(EmailHistory.status == "failed").all()
     if not failed_records:
         raise HTTPException(status_code=400, detail="没有发送失败的邮件记录")
 
+    if selection.recipient_ids is not None:
+        users = choose_users(db.query(User).all(), selection)
+        selected_emails = {user.email for user in users}
+        failed_records = [row for row in failed_records if row.recipient_email in selected_emails]
+        if not failed_records:
+            raise HTTPException(409, '所选用户已没有可重发记录')
     # 按 subject 分组，每组取一个邮件地址
     subjects = {}
     for r in failed_records:
@@ -142,12 +149,13 @@ def resend_failed_emails(db: Session = Depends(get_db, scope="function"), curren
 
 
 @router.post("/api/notices/{notice_id}/send-email")
-def send_notice_email(notice_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
+def send_notice_email(notice_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin), selection: DeliverySelection = Depends(delivery_selection)):
     """一键发送邮件通知给全班学生"""
     notice = db.query(Notice).filter(Notice.id == notice_id).first()
     if not notice:
         raise HTTPException(status_code=404, detail="通知不存在")
     students = db.query(User).filter(User.role == "student").all()
+    students = choose_users(students, selection)
     to_emails = [s.email for s in students if s.email and "@" in s.email]
     if not to_emails:
         raise HTTPException(status_code=400, detail="没有可用的学生邮箱，请先在用户管理中补充邮箱信息")

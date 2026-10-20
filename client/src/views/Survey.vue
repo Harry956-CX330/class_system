@@ -582,6 +582,7 @@ async function handleSendReminder() {
     const res = await api.post(`/api/surveys/${resultSurvey.value.id}/send-email`)
     showMailResult(res.data)
   } catch (err) {
+    if (err?.__notificationCancelled) return
     ElMessage.error(err.response?.data?.detail || '邮件发送失败')
   } finally {
     sendingReminder.value = false
@@ -597,8 +598,9 @@ async function handleQQNotify(row) {
   qqNotifyMap[row.id] = true
   try {
     const res = await api.post(`/api/qq/survey/${row.id}/notify`)
-    ElMessage.success(res.data.message || 'QQ群通知已发送')
+    ;(res.data.failed || res.data.success === false ? ElMessage.warning : ElMessage.success)(res.data.message || 'QQ群通知已发送')
   } catch (err) {
+    if (err?.__notificationCancelled) return
     ElMessage.error(err.response?.data?.detail || '发送失败')
   } finally {
     qqNotifyMap[row.id] = false
@@ -609,7 +611,7 @@ async function handleQQRemind() {
   if (!resultSurvey.value) return
   try {
     await ElMessageBox.confirm(
-      '将向所有未填写该问卷的学生发送 QQ 私聊提醒。确定发送吗？',
+      '下一步选择尚未填写同学的 QQ 私信收件人。',
       'QQ私聊提醒确认',
       { confirmButtonText: '发送', cancelButtonText: '取消', type: 'warning' }
     )
@@ -618,8 +620,9 @@ async function handleQQRemind() {
   try {
     const res = await api.post(`/api/qq/survey/${resultSurvey.value.id}/remind`)
     const info = res.data
-    ElMessage.success(`QQ私聊提醒完成：成功 ${info.sent || 0} 人，失败 ${info.failed || 0} 人`)
+    ;(res.data.failed ? ElMessage.warning : ElMessage.success)(`QQ私聊提醒完成：成功 ${info.sent || 0} 人，失败 ${info.failed || 0} 人`)
   } catch (err) {
+    if (err?.__notificationCancelled) return
     ElMessage.error(err.response?.data?.detail || '发送失败')
   } finally {
     qqRemindLoading.value = false

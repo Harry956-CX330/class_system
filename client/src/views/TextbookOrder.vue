@@ -819,7 +819,8 @@ async function submitNoOrder() {
     loadGroupedOrders()
     loadUnordered()
     ElMessage.success('已确认无需订购')
-  } catch (err) { ElMessage.error(err.response?.data?.detail || '操作失败') }
+  } catch (err) {
+    ElMessage.error(err.response?.data?.detail || '操作失败') }
   finally { confirmingNoOrder.value = false }
 }
 
@@ -999,7 +1000,8 @@ async function handleDelete(row) {
     ElMessage.success('删除成功')
     loadTextbooks()
     loadGroupedOrders()
-  } catch (err) { ElMessage.error(err.response?.data?.detail || '删除失败') }
+  } catch (err) {
+    ElMessage.error(err.response?.data?.detail || '删除失败') }
 }
 
 async function exportOrders() {
@@ -1052,22 +1054,26 @@ function showBlobError(err, defaultMsg) {
 }
 
 async function sendOrderEmails() {
-  try { await ElMessageBox.confirm('将向每位已订购的学生发送教材明细邮件，确认发送？', '发送邮件', { type: 'info' }) } catch { return }
+  try { await ElMessageBox.confirm('下一步选择接收各自教材明细的同学。', '发送邮件', { type: 'info' }) } catch { return }
   sendingEmails.value = true
   try {
     const res = await api.post('/api/textbooks/orders/send-emails')
-    ElMessage.success(res.data.message || '发送完成')
-  } catch (err) { ElMessage.error(err.response?.data?.detail || '发送失败') }
+    ;(res.data.failed || res.data.success === false ? ElMessage.warning : ElMessage.success)(res.data.message || '发送完成')
+  } catch (err) {
+    if (err?.__notificationCancelled) return
+    ElMessage.error(err.response?.data?.detail || '发送失败') }
   finally { sendingEmails.value = false }
 }
 
 async function sendDormEmails() {
-  try { await ElMessageBox.confirm('将向各宿舍长发送宿舍订购明细邮件，确认发送？', '发送宿舍邮件', { type: 'info' }) } catch { return }
+  try { await ElMessageBox.confirm('下一步选择接收各自宿舍订购明细的宿舍长。', '发送宿舍邮件', { type: 'info' }) } catch { return }
   sendingDormEmails.value = true
   try {
     const res = await api.post('/api/textbooks/orders/send-dorm-emails')
-    ElMessage.success(res.data.message || '发送完成')
-  } catch (err) { ElMessage.error(err.response?.data?.detail || '发送失败') }
+    ;(res.data.failed || res.data.success === false ? ElMessage.warning : ElMessage.success)(res.data.message || '发送完成')
+  } catch (err) {
+    if (err?.__notificationCancelled) return
+    ElMessage.error(err.response?.data?.detail || '发送失败') }
   finally { sendingDormEmails.value = false }
 }
 
@@ -1089,22 +1095,26 @@ async function deleteStudentOrders(studentId) {
 }
 
 async function qqRemindUnordered() {
-  try { await ElMessageBox.confirm('将向所有未订购学生发送QQ私聊提醒，确认？', 'QQ提醒', { type: 'info' }) } catch { return }
+  try { await ElMessageBox.confirm('下一步选择未订购同学的 QQ 私信收件人。', 'QQ提醒', { type: 'info' }) } catch { return }
   qqReminding.value = true
   try {
     const res = await api.post('/api/textbooks/qq-remind-unordered')
-    ElMessage.success(res.data.message || '已发送')
-  } catch (err) { ElMessage.error(err.response?.data?.detail || '发送失败') }
+    ;(res.data.failed || res.data.success === false ? ElMessage.warning : ElMessage.success)(res.data.message || '已发送')
+  } catch (err) {
+    if (err?.__notificationCancelled) return
+    ElMessage.error(err.response?.data?.detail || '发送失败') }
   finally { qqReminding.value = false }
 }
 
 async function qqEmailUnordered() {
-  try { await ElMessageBox.confirm('将向所有未订购学生发送QQ邮件提醒，确认？', '邮件提醒', { type: 'info' }) } catch { return }
+  try { await ElMessageBox.confirm('下一步选择未订购同学的邮件收件人。', '邮件提醒', { type: 'info' }) } catch { return }
   qqEmailing.value = true
   try {
     const res = await api.post('/api/textbooks/qq-remind-unordered-email')
-    ElMessage.success(res.data.message || '已发送')
-  } catch (err) { ElMessage.error(err.response?.data?.detail || '发送失败') }
+    ;(res.data.failed || res.data.success === false ? ElMessage.warning : ElMessage.success)(res.data.message || '已发送')
+  } catch (err) {
+    if (err?.__notificationCancelled) return
+    ElMessage.error(err.response?.data?.detail || '发送失败') }
   finally { qqEmailing.value = false }
 }
 

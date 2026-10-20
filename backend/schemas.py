@@ -155,21 +155,28 @@ class CounselorInfoUpdate(BaseModel):
     qq_number: Optional[str] = None
 
 
+class QQGroupTarget(BaseModel):
+    id: str = Field(pattern=r'^[1-9][0-9]{4,11}$')
+    name: str = Field(default='', max_length=50)
+
+
 class QQConfigCreate(BaseModel):
-    api_url: str = ""
-    group_id: str = ""
-    enabled: int = 0
+    api_url: str = Field(default='', max_length=300)
+    access_token: str = Field(default='', max_length=300, pattern=r'^[^\r\n]*$')
+    clear_token: bool = False
+    group_id: str = Field(default='', max_length=12, pattern=r'^(?:[1-9][0-9]{4,11})?$')
+    groups: list[QQGroupTarget] | None = Field(default=None, max_length=10)
+    enabled: int = Field(default=0, ge=0, le=1)
 
 
 class QQConfigResponse(BaseModel):
     id: int
     api_url: str
     group_id: str
+    groups: list[QQGroupTarget] = []
+    token_configured: bool = False
     enabled: int
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 # ─── 教材订购 ───

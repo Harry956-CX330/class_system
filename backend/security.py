@@ -41,19 +41,26 @@ class SecurityMiddleware:
                 target += "?" + scope["query_string"].decode("ascii")
             return await RedirectResponse(target,status_code=308)(scope,receive,send)
         peer = (scope.get("client") or ("unknown", 0))[0]
-        if path.startswith("/api/") and not self.limiter.allow((peer, "api"), 1800, 60):
-            return await JSONResponse({"detail": "请求过于频繁，请稍后重试"}, 429, headers={"Retry-After": "60"})(scope, receive, send)
-        if path in {"/api/login", "/api/password-reset"} and not self.limiter.allow((peer, "login"), 120, 60):
-            return await JSONResponse({"detail": "登录尝试过多，请稍后再试"}, 429, headers={"Retry-After": "60"})(scope, receive, send)
-        if scope["method"] == "POST" and (path.endswith("/notify") or path.endswith("/remind") or path.endswith("/send-email")):
+        from services.server_monitor import monitor
+        tracked = path.startswith('/api/') and not (path == '/api/health' and peer in {'127.0.0.1','::1'})
+        if tracked:
+            retry = monitor.enter(peer, path)
+            if retry:
+                return await JSONResponse({'detail':'请求过于频繁，已触发自动防护，请等待后重试'},429,
+                    headers={'Retry-After':str(retry), 'X-Content-Type-Options':'nosniff', 'Cache-Control':'no-store'})(scope,receive,send)
+        response_status = 500
+        if scope["method"] == "POST" and (path.endswith(("/notify", "/remind", "/send-email", "/send-emails", "/send-dorm-emails", "/remind-leaders", "/remind-one", "/resend")) or "qq-remind-" in path):
             identity = dict(scope.get("headers", [])).get(b"authorization", b"")
             if not self.limiter.allow((peer, identity, path), 2, 60):
+                if tracked: monitor.leave(peer,path,429)
                 return await JSONResponse({"detail": "提醒正在处理，请一分钟后重试"}, 429, headers={"Retry-After": "60"})(scope, receive, send)
         download = path.startswith(("/static/", "/api/transfers/open/")) or any(k in path for k in ("download", "/export", "/media/"))
         if download:
             scope = dict(scope, extensions={k:v for k,v in scope.get("extensions", {}).items() if k != "http.response.pathsend"})
         async def guarded_send(message):
+            nonlocal response_status
             if message["type"] == "http.response.start":
+                response_status = message["status"]
                 headers = list(message.get("headers", []))
                 headers.extend([(b"x-content-type-options", b"nosniff"), (b"x-frame-options", b"DENY"),
                     (b"referrer-policy", b"no-referrer"), (b"permissions-policy", b"camera=(self), microphone=(), geolocation=()"),
@@ -76,4 +83,7 @@ class SecurityMiddleware:
                     await send(dict(message, body=chunk, more_body=offset+32768 < len(body) or message.get("more_body", False)))
                 return
             await send(message)
-        await self.app(scope, receive, guarded_send)
+        try:
+            await self.app(scope, receive, guarded_send)
+        finally:
+            if tracked: monitor.leave(peer,path,response_status)

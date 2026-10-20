@@ -1,3 +1,4 @@
+from services.delivery import DeliverySelection, delivery_selection, choose_users
 from auth import get_current_user
 from auth import require_admin
 from config import ZIP_BATCH_MAX_SIZE, MAX_IMPORT_BYTES
@@ -325,7 +326,7 @@ def list_orders_grouped(db: Session = Depends(get_db, scope="function"), current
 
 
 @router.post("/api/textbooks/qq-remind-unordered")
-def qq_remind_unordered(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
+def qq_remind_unordered(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin), selection: DeliverySelection = Depends(delivery_selection)):
     """QQ私聊提醒所有未订购学生"""
     cfg = _get_qq_config(db)
     if not cfg: raise HTTPException(status_code=400, detail="QQ提醒未启用或未配置")
@@ -333,6 +334,7 @@ def qq_remind_unordered(db: Session = Depends(get_db, scope="function"), current
     ordered_ids = set(r[0] for r in db.query(TextbookOrder.student_id).distinct().all())
     no_order_ids = set(r[0] for r in db.query(NoOrderConfirm.student_id).distinct().all())
     unordered = [s for s in all_students if s.id not in ordered_ids and s.id not in no_order_ids]
+    unordered = choose_users(unordered, selection)
     if not unordered:
         return {"message": "所有学生均已订购或已确认无需订购", "sent": 0, "failed": 0}
 
@@ -365,18 +367,19 @@ def qq_remind_unordered(db: Session = Depends(get_db, scope="function"), current
                 failed += 1
         except Exception:
             failed += 1
-    return {"message": f"已发送 {sent} 条QQ提醒" + (f"，{failed} 人发送失败" if failed > 0 else "")}
+    return {"sent": sent, "failed": failed, "success": failed == 0, "message": f"已发送 {sent} 条QQ提醒" + (f"，{failed} 人发送失败" if failed > 0 else "")}
 
 
 
 @router.post("/api/textbooks/qq-remind-unordered-email")
-def qq_email_remind_unordered(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
+def qq_email_remind_unordered(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin), selection: DeliverySelection = Depends(delivery_selection)):
     """QQ邮件提醒所有未订购学生"""
     all_students = db.query(User).filter(User.role == "student").all()
     ordered_ids = set(r[0] for r in db.query(TextbookOrder.student_id).distinct().all())
     no_order_ids = set(r[0] for r in db.query(NoOrderConfirm.student_id).distinct().all())
     unordered = [s for s in all_students if s.id not in ordered_ids and s.id not in no_order_ids]
 
+    unordered = choose_users(unordered, selection)
     tcfg = get_textbook_config(db)
     deadline_str = ""
     if tcfg["deadline"]:
@@ -394,11 +397,12 @@ def qq_email_remind_unordered(db: Session = Depends(get_db, scope="function"), c
     if deadline_str:
         lines.append(f"截止时间为：{deadline_str}")
     lines.append("请尽快登录班务系统（数科2441智能管理平台）完成教材选购。\n")
-    lines.append("登录地址：https://你的服务器地址")
+    from config import PUBLIC_BASE_URL
+    if PUBLIC_BASE_URL: lines.append("登录地址："+PUBLIC_BASE_URL)
     lines.append("\n---\n此邮件由智能班务系统自动发送，请勿回复。")
 
     result = send_emails_batch(emails, "【数科2441班】教材订购提醒", "\n".join(lines), db=db, send_type="textbook_remind")
-    return {"message": "已发送" if result["success"] else "发送失败"}
+    return {**result, "message": f"邮件发送完成：成功 {result.get('sent',0)} 人，失败 {result.get('failed',0)} 人"}
 
 
 
@@ -446,7 +450,7 @@ def export_orders_excel(db: Session = Depends(get_db, scope="function"), current
 
 
 @router.post("/api/textbooks/orders/send-emails")
-def send_order_emails(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
+def send_order_emails(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin), selection: DeliverySelection = Depends(delivery_selection)):
     """管理员一键发送订购明细到各学生邮箱"""
     orders = db.query(TextbookOrder).order_by(TextbookOrder.student_id).all()
     student_orders: dict[int, dict] = {}
@@ -467,6 +471,8 @@ def send_order_emails(db: Session = Depends(get_db, scope="function"), current_u
             "discounted_price": t.discounted_price if t else 0,
         })
 
+    chosen = {user.id for user in choose_users([row["student"] for row in student_orders.values() if row["student"]], selection)}
+    student_orders = {uid: row for uid, row in student_orders.items() if uid in chosen}
     if not student_orders:
         raise HTTPException(status_code=400, detail="暂无订购记录")
 
@@ -511,7 +517,7 @@ def send_order_emails(db: Session = Depends(get_db, scope="function"), current_u
         except Exception:
             failed += 1
 
-    return {"message": f"已发送 {sent} 封邮件" + (f"，{failed} 人发送失败" if failed > 0 else "")}
+    return {"sent": sent, "failed": failed, "success": failed == 0, "message": f"已发送 {sent} 封邮件" + (f"，{failed} 人发送失败" if failed > 0 else "")}
 
 
 
@@ -765,15 +771,19 @@ def export_orders_by_dorm_word(db: Session = Depends(get_db, scope="function"), 
 
 
 @router.post("/api/textbooks/orders/send-dorm-emails")
-def send_dorm_order_emails(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
+def send_dorm_order_emails(db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin), selection: DeliverySelection = Depends(delivery_selection)):
     """一键发送宿舍订购明细到各宿舍长QQ邮箱"""
     students = _get_student_dorm_data(db)
     dorms = _get_dorm_grouped_data(db)
 
+    leaders = [db.query(User).filter(User.dorm == dorm, User.is_dorm_leader == True).first() for dorm in dorms]
+    chosen = {user.id for user in choose_users([user for user in leaders if user], selection)}
     sent = 0
     failed = 0
     for dorm_name in sorted(dorms.keys()):
         dorm_leader = db.query(User).filter(User.dorm == dorm_name, User.is_dorm_leader == True).first()
+        if dorm_leader and dorm_leader.id not in chosen:
+            continue
         if not dorm_leader or not dorm_leader.email or "@" not in dorm_leader.email:
             failed += 1
             continue
@@ -814,5 +824,5 @@ def send_dorm_order_emails(db: Session = Depends(get_db, scope="function"), curr
         except Exception:
             failed += 1
 
-    return {"message": f"已发送 {sent} 个宿舍" + (f"，{failed} 个失败" if failed > 0 else "")}
+    return {"sent": sent, "failed": failed, "success": failed == 0, "message": f"已发送 {sent} 个宿舍" + (f"，{failed} 个失败" if failed > 0 else "")}
 

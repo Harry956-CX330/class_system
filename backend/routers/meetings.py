@@ -1,3 +1,4 @@
+from services.delivery import DeliverySelection, choose_users
 from auth import get_current_user
 from auth import require_admin
 from config import ALLOWED_EXTENSIONS
@@ -303,7 +304,12 @@ def send_meeting_record_email(meeting_id: int, data: dict, db: Session = Depends
     if not meeting:
         raise HTTPException(status_code=404, detail="班会不存在")
     email_addr = (data.get("email") or "").strip()
-    if not email_addr or "@" not in email_addr:
+    try:
+        selection = DeliverySelection.model_validate(data)
+    except ValueError:
+        raise HTTPException(422, "请选择有效的邮件收件人") from None
+    recipients = [user.email for user in choose_users(db.query(User).all(), selection)] if selection.recipient_ids is not None else [email_addr]
+    if not recipients or any(not address or '@' not in address for address in recipients):
         raise HTTPException(status_code=400, detail="请输入有效的邮箱地址")
     record = db.query(ClassMeetingRecord).filter(ClassMeetingRecord.meeting_id == meeting_id).first()
     if not record or not record.record_file:
@@ -315,10 +321,10 @@ def send_meeting_record_email(meeting_id: int, data: dict, db: Session = Depends
     from html import escape
     body = (f"【班会记录】\n班会：{escape(meeting.title)}\n时间：{time_str}\n"
             f"地点：{escape(meeting.location or '待定')}\n\n请查阅班会记录附件；大文件使用限时链接。")
-    result = send_emails_batch([email_addr], meeting.title, body, db=db, send_type='meeting_record', related_id=meeting_id,
+    result = send_emails_batch(recipients, meeting.title, body, db=db, send_type='meeting_record', related_id=meeting_id,
         attachments=[{'url':'/static/'+record.record_file, 'name':record.record_file_name or record.record_file,
                       'image':False, 'user_id':current_user.id}])
     if not result.get('success'):
         raise HTTPException(502, '班会记录邮件发送失败，请检查邮件设置及发送历史')
-    return {'message':'邮件已发送'}
+    return {'message':'邮件已发送', 'sent':result.get('sent',0), 'failed':result.get('failed',0)}
 

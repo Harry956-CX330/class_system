@@ -1,3 +1,4 @@
+from services.delivery import DeliverySelection, delivery_selection, choose_users
 import uuid
 import threading
 from services.naming import validate_pattern, safe_component
@@ -259,7 +260,7 @@ def get_unsubmitted_students(task_id: int, db: Session = Depends(get_db, scope="
 
 
 @router.post("/api/file-tasks/{task_id}/send-email")
-def send_task_email_reminder(task_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
+def send_task_email_reminder(task_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin), selection: DeliverySelection = Depends(delivery_selection)):
     """一键发送邮件提醒未提交的学生"""
     task = db.query(FileTask).filter(FileTask.id == task_id).first()
     if not task:
@@ -271,6 +272,7 @@ def send_task_email_reminder(task_id: int, db: Session = Depends(get_db, scope="
     )
     all_students = db.query(User).filter(User.role == "student").all()
     unsubmitted = [u for u in all_students if u.id not in submitted_ids]
+    unsubmitted = choose_users(unsubmitted, selection)
     to_emails = [s.email for s in unsubmitted if s.email and "@" in s.email]
     if not to_emails:
         raise HTTPException(status_code=400, detail="没有可用的未提交学生邮箱")

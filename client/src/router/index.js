@@ -19,6 +19,7 @@ const routes = [
     component: () => import('../views/Dashboard.vue'),
     meta: { requiresAuth: true },
     children: [
+      { path: 'server-status', component: () => import('../views/ServerStatus.vue'), meta: { title: '服务器状态', requiresAdmin: true } },
       { path: 'ai', component: () => import('../views/AIAssistant.vue'), meta: { title: 'AI 班务助手' } },
       { path: 'ai-settings', component: () => import('../views/AISettings.vue'), meta: { title: 'AI 服务设置', requiresAdmin: true, systemAdmin: true } },
       { path: 'appearance', component: () => import('../views/AppearanceSettings.vue'), meta: {title:'登录页外观',requiresAdmin:true} },

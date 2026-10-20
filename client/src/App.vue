@@ -1,5 +1,6 @@
 <template>
-  <el-config-provider :locale="zhCn"><router-view /></el-config-provider>
+  <el-config-provider :locale="zhCn"><router-view />
+    <NotificationTargetPicker /></el-config-provider>
 </template>
 
 <script setup>
@@ -7,6 +8,7 @@ import { onMounted, onBeforeUnmount } from 'vue'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import { ElMessageBox } from 'element-plus'
 import api from './api'
+import NotificationTargetPicker from './components/NotificationTargetPicker.vue'
 import { useAuthStore } from './stores/auth'
 
 // 登录会话最多保留 1 小时，超时自动退出

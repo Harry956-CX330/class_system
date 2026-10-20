@@ -675,6 +675,7 @@ async function handleSendReminder() {
     const { data } = await api.post(`/api/file-tasks/${detailTask.value.id}/send-email`)
     showMailResult(data)
   } catch (err) {
+    if (err?.__notificationCancelled) return
     ElMessage.error(err.response?.data?.detail || '发送失败')
   } finally { sendingReminder.value = false }
 }
@@ -687,8 +688,9 @@ async function handleQQNotify() {
   qqNotifyLoading.value = true
   try {
     const res = await api.post(`/api/qq/file-task/${detailTask.value.id}/notify`)
-    ElMessage.success(res.data.message || 'QQ群通知已发送')
+    ;(res.data.failed || res.data.success === false ? ElMessage.warning : ElMessage.success)(res.data.message || 'QQ群通知已发送')
   } catch (err) {
+    if (err?.__notificationCancelled) return
     ElMessage.error(err.response?.data?.detail || '发送失败')
   } finally { qqNotifyLoading.value = false }
 }
@@ -696,13 +698,14 @@ async function handleQQNotify() {
 async function handleQQRemind() {
   if (!detailTask.value) return
   try {
-    await ElMessageBox.confirm('将向所有未提交该任务的学生发送 QQ 私聊提醒。确定发送吗？', 'QQ私聊提醒确认', { confirmButtonText: '发送', cancelButtonText: '取消', type: 'warning' })
+    await ElMessageBox.confirm('下一步选择尚未提交同学的 QQ 私信收件人。', 'QQ私聊提醒确认', { confirmButtonText: '发送', cancelButtonText: '取消', type: 'warning' })
   } catch { return }
   qqRemindLoading.value = true
   try {
     const res = await api.post(`/api/qq/file-task/${detailTask.value.id}/remind`)
-    ElMessage.success(`QQ私聊提醒完成：成功 ${res.data.sent || 0} 人，失败 ${res.data.failed || 0} 人`)
+    ;(res.data.failed ? ElMessage.warning : ElMessage.success)(`QQ私聊提醒完成：成功 ${res.data.sent || 0} 人，失败 ${res.data.failed || 0} 人`)
   } catch (err) {
+    if (err?.__notificationCancelled) return
     ElMessage.error(err.response?.data?.detail || '发送失败')
   } finally { qqRemindLoading.value = false }
 }

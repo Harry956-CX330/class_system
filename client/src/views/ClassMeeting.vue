@@ -467,8 +467,9 @@ async function sendRecordEmail() {
     const res = await api.post(`/api/class-meetings/${recordMeetingId.value}/send-email`, {
       email: emailTo.value.trim(),
     })
-    ElMessage.success(res.data.message || '邮件已发送')
+    ;(res.data.failed || res.data.success === false ? ElMessage.warning : ElMessage.success)(res.data.message || '邮件已发送')
   } catch (err) {
+    if (err?.__notificationCancelled) return
     ElMessage.error(err.response?.data?.detail || '邮件发送失败')
   } finally {
     sendingEmail.value = false
@@ -481,8 +482,9 @@ async function qqNotifyMeeting(row) {
   } catch { return }
   try {
     const res = await api.post(`/api/qq/class-meeting/${row.id}/notify`)
-    ElMessage.success(res.data.message || 'QQ群通知已发送')
+    ;(res.data.failed || res.data.success === false ? ElMessage.warning : ElMessage.success)(res.data.message || 'QQ群通知已发送')
   } catch (err) {
+    if (err?.__notificationCancelled) return
     ElMessage.error(err.response?.data?.detail || '发送失败')
   }
 }
@@ -493,8 +495,9 @@ async function qqRemindLeaders(row) {
   } catch { return }
   try {
     const res = await api.post(`/api/qq/class-meeting/${row.id}/remind-leaders`)
-    ElMessage.success(res.data.message || '提醒完成')
+    ;(res.data.failed || res.data.success === false ? ElMessage.warning : ElMessage.success)(res.data.message || '提醒完成')
   } catch (err) {
+    if (err?.__notificationCancelled) return
     ElMessage.error(err.response?.data?.detail || '发送失败')
   }
 }

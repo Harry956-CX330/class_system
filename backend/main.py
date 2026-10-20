@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 import os
+import asyncio
 import anyio.to_thread
 from fastapi import FastAPI, HTTPException
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -14,7 +15,7 @@ from security import SecurityMiddleware
 from routers.transfers import TransferTicketMiddleware
 from routers import media, transfers, branding, password_reset
 from routers import users, notices, settings, grades, certificates, activities, groups, social_practices, dashboard, file_tasks, surveys, meetings, resources, textbooks, qq
-from routers import qr_checkin, ai
+from routers import qr_checkin, ai, notification_targets, server_status
 
 
 @asynccontextmanager
@@ -32,13 +33,20 @@ async def lifespan(app):
     app.state.frontend_build = inspect_build(FRONTEND_DIST)
     if os.environ.get('REQUIRE_FRONTEND_BUILD') == '1' and not app.state.frontend_build['ready']:
         raise RuntimeError('Frontend build validation failed: ' + app.state.frontend_build.get('error', 'unknown'))
-    yield
+    from services.server_monitor import run_monitor
+    monitor_task=asyncio.create_task(run_monitor())
+    try:
+        yield
+    finally:
+        monitor_task.cancel()
+        try:await monitor_task
+        except asyncio.CancelledError:pass
     engine.dispose()
     qr_engine.dispose()
 
 
 prepare_directories()
-app = FastAPI(title="数科2441班数据管理系统", version="2.3.0", lifespan=lifespan)
+app = FastAPI(title="数科2441班数据管理系统", version="2.4.0", lifespan=lifespan)
 app.add_middleware(ResourceLimitsMiddleware)
 app.add_middleware(TransferTicketMiddleware)
 app.add_middleware(SecurityMiddleware)
@@ -47,7 +55,7 @@ app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_credentials
                    allow_methods=["*"], allow_headers=["*"],
                    expose_headers=["Content-Disposition", "Accept-Ranges", "Content-Range", "Retry-After"])
 for module in (users, notices, settings, grades, certificates, activities, groups, social_practices,
-               dashboard, file_tasks, surveys, meetings, resources, textbooks, qq, media, transfers, branding, password_reset, qr_checkin, ai):
+               dashboard, file_tasks, surveys, meetings, resources, textbooks, qq, media, transfers, branding, password_reset, qr_checkin, ai, notification_targets, server_status):
     app.include_router(module.router)
 
 # Validation failures must never echo passwords or verification codes.

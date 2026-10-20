@@ -72,7 +72,7 @@ def _send_qq_media(api_url, endpoint, payload):
         if not path.is_file():
             return {"status":"failed","error":"正文引用的附件已丢失"}
         local = (shared.rstrip("/")+"/"+item["url"][len("/static/"):]) if shared else None
-        if item["image"] and local and (endpoint == "send_group_msg" or path.stat().st_size <= 64*1024):
+        if item["image"] and local and path.stat().st_size <= (256*1024 if endpoint == "send_group_msg" else 64*1024):
             segments.append({"type":"image","data":{"file":"file://"+local}})
         elif not item["image"] and local and endpoint == "send_group_msg" and path.stat().st_size <= 1024*1024:
             files.append((local,name))

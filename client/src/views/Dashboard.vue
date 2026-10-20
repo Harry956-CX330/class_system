@@ -36,6 +36,7 @@
           <span>通知公告</span>
         </el-menu-item>
 
+        <el-menu-item v-if="currentView === 'admin'" index="/server-status"><el-icon><Collection /></el-icon><span>服务器状态</span></el-menu-item>
         <!-- 用户端菜单 -->
         <el-menu-item index="/ai"><el-icon><ChatDotSquare /></el-icon><span>AI 班务助手</span></el-menu-item>
         <el-menu-item v-if="currentView === 'admin' && authStore.user?.role === 'admin'" index="/ai-settings"><el-icon><Collection /></el-icon><span>AI 服务设置</span></el-menu-item>

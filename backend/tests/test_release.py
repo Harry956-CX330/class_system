@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 workspace = tempfile.TemporaryDirectory(prefix="class-system-tests-")
 root = Path(workspace.name)
-os.environ.update(DATABASE_URL="sqlite:///"+(root/"test.db").as_posix(),DATA_DIR=str(root/"data"),UPLOAD_DIR=str(root/"uploads"),TEMP_DIR=str(root/"tmp"),SECRET_KEY="test-only-secret-key-"+"x"*40,PUBLIC_BASE_URL="https://class.example.test",DOWNLOAD_KIB_PER_SECOND="100000")
+os.environ.update(SECURITY_ALERT_DELIVERY="0",DATABASE_URL="sqlite:///"+(root/"test.db").as_posix(),DATA_DIR=str(root/"data"),UPLOAD_DIR=str(root/"uploads"),TEMP_DIR=str(root/"tmp"),SECRET_KEY="test-only-secret-key-"+"x"*40,PUBLIC_BASE_URL="https://class.example.test",DOWNLOAD_KIB_PER_SECOND="100000")
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from database import Base, engine, SessionLocal
 from models import User, FileSubmission, SurveyQuestion, SurveyResponse
@@ -24,8 +24,9 @@ from services.notifications import build_email
 from routers.transfers import make_ticket
 from fastapi import HTTPException
 from ai_cases import AICases
+from notification_cases import NotificationCases
 
-class ReleaseTests(AICases, unittest.TestCase):
+class ReleaseTests(NotificationCases, AICases, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         Base.metadata.create_all(engine)  # Disposable test DB, never the supplied data.db.

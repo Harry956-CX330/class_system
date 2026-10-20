@@ -482,8 +482,9 @@ async function handleQQNotify(project) {
   qqNotifyMap[project.id] = true
   try {
     const res = await api.post(`/api/qq/group-project/${project.id}/notify`)
-    ElMessage.success(res.data.message || 'QQ群通知已发送')
+    ;(res.data.failed || res.data.success === false ? ElMessage.warning : ElMessage.success)(res.data.message || 'QQ群通知已发送')
   } catch (err) {
+    if (err?.__notificationCancelled) return
     ElMessage.error(err.response?.data?.detail || '发送失败')
   } finally {
     qqNotifyMap[project.id] = false
@@ -504,8 +505,9 @@ async function handleQQRemind() {
   try {
     const res = await api.post(`/api/qq/group-project/${project.id}/remind`)
     const info = res.data
-    ElMessage.success(`QQ私聊提醒完成：成功 ${info.sent || 0} 人，失败 ${info.failed || 0} 人`)
+    ;(res.data.failed ? ElMessage.warning : ElMessage.success)(`QQ私聊提醒完成：成功 ${info.sent || 0} 人，失败 ${info.failed || 0} 人`)
   } catch (err) {
+    if (err?.__notificationCancelled) return
     ElMessage.error(err.response?.data?.detail || '发送失败')
   } finally {
     qqRemindLoading.value = false

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 _temp = tempfile.TemporaryDirectory(prefix="class-ui-")
 root=Path(_temp.name)
 project=Path(__file__).resolve().parents[2]
-os.environ.update(DATABASE_URL="sqlite:///"+(root/"test.db").as_posix(),DATA_DIR=str(root),UPLOAD_DIR=str(root/"uploads"),TEMP_DIR=str(root/"archives"),SECRET_KEY="ui-test-secret-"+"z"*40,FRONTEND_DIST=str(project/"client"/"dist"),DOWNLOAD_KIB_PER_SECOND="100000")
+os.environ.update(SECURITY_ALERT_DELIVERY="0",DATABASE_URL="sqlite:///"+(root/"test.db").as_posix(),DATA_DIR=str(root),UPLOAD_DIR=str(root/"uploads"),TEMP_DIR=str(root/"archives"),SECRET_KEY="ui-test-secret-"+"z"*40,FRONTEND_DIST=str(project/"client"/"dist"),DOWNLOAD_KIB_PER_SECOND="100000")
 sys.path.insert(0,str(project/"backend"))
 from database import Base, engine, SessionLocal
 from models import User, Notice, FileTask, Survey, SurveyQuestion, Grade

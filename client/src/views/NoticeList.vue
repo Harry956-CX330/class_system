@@ -62,6 +62,7 @@
                 <el-button size="small" type="primary" link :icon="EditPen" @click="openEditDialog(row)">编辑</el-button>
                 <el-button size="small" type="success" link :icon="Message" :loading="sendingId === row.id" @click="handleSendEmail(row)">邮件</el-button>
                 <el-button size="small" type="warning" link :icon="ChatDotSquare" :loading="qqNotifySendingId === row.id" @click="handleQQNotify(row)">QQ群</el-button>
+                <el-button size="small" type="primary" link @click="handleQQPrivate(row)">私信</el-button>
                 <el-button size="small" type="danger" link :icon="Delete" @click="handleDelete(row)">删除</el-button>
               </template>
             </div>
@@ -93,6 +94,7 @@
               <el-button size="small" type="info" plain :icon="EditPen" @click="openEditDialog(row)">编辑</el-button>
               <el-button size="small" type="success" plain :icon="Message" :loading="sendingId === row.id" @click="handleSendEmail(row)">邮件</el-button>
               <el-button size="small" type="warning" plain :icon="ChatDotSquare" :loading="qqNotifySendingId === row.id" @click="handleQQNotify(row)">QQ群</el-button>
+              <el-button size="small" type="primary" plain @click="handleQQPrivate(row)">私信</el-button>
               <el-button size="small" type="danger" plain :icon="Delete" @click="handleDelete(row)">删除</el-button>
             </template>
           </div>
@@ -173,6 +175,7 @@ import { Plus, View, EditPen, Delete, ChatLineSquare, Position, User, Calendar, 
 import { useAuthStore } from '../stores/auth'
 import { useRouter, useRoute } from 'vue-router'
 import api from '../api'
+import { showMailResult } from '../utils/notifications'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -305,22 +308,23 @@ async function handleDelete(row) {
   } catch {}
 }
 
+async function handleQQPrivate(row) {
+  try { const {data}=await api.post(`/api/qq/notice/${row.id}/remind`); if(data.failed) ElMessage.warning(data.message);else ElMessage.success(data.message) }
+  catch(error){if(!error?.__notificationCancelled)ElMessage.error(error.response?.data?.detail||'发送失败')}
+}
+
 async function handleSendEmail(row) {
   try {
-    await ElMessageBox.confirm(`确定要向全班学生发送邮件通知 "${row.title}" 吗？`, '邮件通知确认', {
+    await ElMessageBox.confirm(`下一步选择收件人并发送邮件通知 "${row.title}" 吗？`, '邮件通知确认', {
       confirmButtonText: '发送',
       cancelButtonText: '取消',
       type: 'info'
     })
     sendingId.value = row.id
     const res = await api.post(`/api/notices/${row.id}/send-email`)
-    const d = res.data.detail || {}
-    if (d.success) {
-      ElMessage.success(`邮件已发送: 成功 ${d.sent} 人，失败 ${d.failed} 人`)
-    } else {
-      ElMessage.error(d.detail || '发送失败')
-    }
+    showMailResult(res.data)
   } catch (err) {
+    if (err?.__notificationCancelled) return
     if (err !== 'cancel') {
       ElMessage.error(err.response?.data?.detail || '邮件发送失败，请检查 SMTP 配置')
     }
@@ -338,8 +342,9 @@ async function handleQQNotify(row) {
   qqNotifySendingId.value = row.id
   try {
     const res = await api.post(`/api/qq/notice/${row.id}/notify`)
-    ElMessage.success(res.data.message || 'QQ群通知已发送')
+    ;(res.data.failed || res.data.success === false ? ElMessage.warning : ElMessage.success)(res.data.message || 'QQ群通知已发送')
   } catch (err) {
+    if (err?.__notificationCancelled) return
     ElMessage.error(err.response?.data?.detail || '发送失败')
   } finally {
     qqNotifySendingId.value = null

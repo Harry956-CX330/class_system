@@ -475,8 +475,9 @@ async function qqNotifyActivity() {
   } catch { return }
   try {
     const res = await api.post(`/api/qq/activity/${viewActivity.value.id}/notify`)
-    ElMessage.success(res.data.message || 'QQ群通知已发送')
+    ;(res.data.failed || res.data.success === false ? ElMessage.warning : ElMessage.success)(res.data.message || 'QQ群通知已发送')
   } catch (err) {
+    if (err?.__notificationCancelled) return
     ElMessage.error(err.response?.data?.detail || '发送失败')
   }
 }
@@ -487,8 +488,9 @@ async function qqRemindUnsigned() {
   } catch { return }
   try {
     const res = await api.post(`/api/qq/activity/${viewActivity.value.id}/remind`)
-    ElMessage.success(res.data.message || '提醒完成')
+    ;(res.data.failed || res.data.success === false ? ElMessage.warning : ElMessage.success)(res.data.message || '提醒完成')
   } catch (err) {
+    if (err?.__notificationCancelled) return
     ElMessage.error(err.response?.data?.detail || '发送失败')
   }
 }
@@ -499,8 +501,9 @@ async function qqRemindOne(row) {
   } catch { return }
   try {
     const res = await api.post(`/api/qq/activity/${viewActivity.value.id}/remind-one`, { student_id: row.student_id })
-    ElMessage.success(res.data.message || '提醒已发送')
+    ;(res.data.failed || res.data.success === false ? ElMessage.warning : ElMessage.success)(res.data.message || '提醒已发送')
   } catch (err) {
+    if (err?.__notificationCancelled) return
     ElMessage.error(err.response?.data?.detail || '发送失败')
   }
 }

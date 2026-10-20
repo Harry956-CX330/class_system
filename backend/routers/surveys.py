@@ -1,3 +1,4 @@
+from services.delivery import DeliverySelection, delivery_selection, choose_users
 from services.richtext import clean_html
 from services.surveys import options_list, validate_answers, submission_lock
 import json
@@ -435,7 +436,7 @@ def export_survey_results(survey_id: int, sort_by: str = Query("student_id"),
 
 
 @router.post("/api/surveys/{survey_id}/send-email")
-def send_survey_email_reminder(survey_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin)):
+def send_survey_email_reminder(survey_id: int, db: Session = Depends(get_db, scope="function"), current_user: User = Depends(require_admin), selection: DeliverySelection = Depends(delivery_selection)):
     """一键发送邮件提醒未填写问卷的学生"""
     survey = db.query(Survey).filter(Survey.id == survey_id).first()
     if not survey:
@@ -449,6 +450,7 @@ def send_survey_email_reminder(survey_id: int, db: Session = Depends(get_db, sco
     )
     all_students = db.query(User).filter(User.role == "student").all()
     unanswered = [u for u in all_students if u.id not in answered_ids]
+    unanswered = choose_users(unanswered, selection)
     to_emails = [s.email for s in unanswered if s.email and "@" in s.email]
     if not to_emails:
         raise HTTPException(status_code=400, detail="没有可用的未填写学生邮箱")

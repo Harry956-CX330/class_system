@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { needsTargetSelection, openNotificationPicker } from '../utils/notificationPicker'
 import { ElMessageBox } from 'element-plus'
 
 const api = axios.create({
@@ -7,16 +8,21 @@ const api = axios.create({
 })
 
 api.interceptors.request.use(
-  (config) => {
+  async (config) => {
     const token = localStorage.getItem('token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
-    if (/\/(notify|remind|send-email|test-email|resend|submit)$/.test(config.url || '')) config.timeout = 0
+    if (/\/(notify|remind|send-email|send-emails|send-dorm-emails|remind-leaders|remind-one|qq-remind-unordered|qq-remind-unordered-email|test-email|resend|submit)$/.test(config.url || '')) config.timeout = 0
     // 管理端视图 → 后端返回全班数据
     const currentView = localStorage.getItem('currentView')
     if (currentView === 'admin') {
       config.headers['X-View-Mode'] = 'admin'
+    }
+    if (config.method === 'post' && needsTargetSelection(config.url) && !config.skipTargetSelection) {
+      const options = (await api.get('/api/notifications/targets', {params:{endpoint:config.url}})).data
+      const original = config.data || {}
+      config.data = await openNotificationPicker(config.url, options, original)
     }
     return config
   },

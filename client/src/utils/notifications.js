@@ -2,7 +2,7 @@ import { ElMessage } from 'element-plus'
 
 export function showMailResult(data) {
   const result = data.detail || data
-  if (data.success === false || result.success === false) {
+  if ((data.success === false || result.success === false) && !result.sent) {
     ElMessage.error(typeof result.detail === 'string' ? result.detail : '邮件发送失败，请检查邮件服务配置或发送记录')
     return
   }
