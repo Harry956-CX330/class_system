@@ -46,7 +46,7 @@ async def lifespan(app):
 
 
 prepare_directories()
-app = FastAPI(title="数科2441班数据管理系统", version="2.4.0", lifespan=lifespan)
+app = FastAPI(title="数科2441班数据管理系统", version="2.4.1", lifespan=lifespan)
 app.add_middleware(ResourceLimitsMiddleware)
 app.add_middleware(TransferTicketMiddleware)
 app.add_middleware(SecurityMiddleware)

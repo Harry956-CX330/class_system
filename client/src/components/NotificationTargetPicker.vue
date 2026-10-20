@@ -7,8 +7,9 @@
       <label v-for="row in filtered" :key="row.id" class="target-row" :class="{unavailable:!isAvailable(row)}"><el-checkbox :value="row.id" :disabled="!isAvailable(row)"><span class="target-name">{{ row.name || row.id }}</span><span class="target-meta">{{ state.channel==='group' ? `群号 ${row.id}` : `${row.student_id || ''} · ${row.address || '未填写联系方式'}` }}</span><span v-if="!isAvailable(row)" class="target-unavailable">请先在用户管理补全有效{{ state.channel==='qq'?'QQ号':'邮箱' }}</span></el-checkbox></label>
     </el-checkbox-group>
     <el-empty v-if="!filtered.length" description="当前没有可选目标" :image-size="50" />
+    <div v-if="state.channel==='group'" class="mention-all"><el-checkbox v-model="state.atAll">@全体成员</el-checkbox><p class="target-scope">仅对本次选中的群生效。机器人需要具备权限及可用次数；无法 @ 时会提示该群未发送，可取消勾选后发送普通通知。</p></div>
     <div v-if="state.email" class="original-email"><el-checkbox :model-value="!state.selected.length" @change="state.selected=[]">使用原指定邮箱：{{ state.email }}</el-checkbox><p>选择系统用户后仅发送给所选用户，不会同时发送原指定邮箱。</p></div>
-    <template #footer><div class="target-footer"><el-button @click="finishNotificationPicker(true)">取消发送</el-button><el-button type="primary" :disabled="!state.selected.length&&!state.email" @click="finishNotificationPicker()">确认发送{{ state.selected.length ? `（${state.selected.length}${state.channel==='group'?'个群':'人'}）`:'' }}</el-button></div></template>
+    <template #footer><div class="target-footer"><el-button @click="finishNotificationPicker(true)">取消发送</el-button><el-button type="primary" :disabled="!state.selected.length&&!state.email" @click="finishNotificationPicker()">确认发送{{ state.channel==='group'&&state.atAll?'并@全体成员':'' }}{{ state.selected.length ? `（${state.selected.length}${state.channel==='group'?'个群':'人'}）`:'' }}</el-button></div></template>
   </el-dialog>
 </template>
 <script setup>

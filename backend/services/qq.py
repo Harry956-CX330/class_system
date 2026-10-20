@@ -58,13 +58,31 @@ def _send_qq_media(api_url, endpoint, payload):
     from services.notifications import media_info, public_media_url
     from fastapi import HTTPException
     import os
+    payload = dict(payload)
+    at_all = payload.pop('at_all', False) is True and endpoint == 'send_group_msg'
+    mentions = []
+    if at_all:
+        availability = _call_qq(api_url, 'get_group_at_all_remain', {'group_id': payload['group_id']})
+        if not (availability.get('status') == 'ok' or availability.get('retcode') == 0):
+            return {'status':'failed','error':'无法确认 @全体成员 权限和次数，本群未发送；请检查机器人状态或取消勾选后发送'}
+        remaining = availability.get('data') or {}
+        if not isinstance(remaining, dict) or remaining.get('can_at_all') is not True or any(
+            isinstance(remaining.get(key), (int, float)) and remaining[key] <= 0
+            for key in ('remain_at_all_count_for_group', 'remain_at_all_count_for_uin')
+        ):
+            return {'status':'failed','error':'本群无法 @全体成员：机器人无权限或当天次数已用完，本群未发送'}
+        mentions = [{'type':'at','data':{'qq':'all'}}, {'type':'text','data':{'text':'\n'}}]
     message = payload.get("message")
     if not isinstance(message,str):
+        if at_all:
+            if not isinstance(message, list):
+                return {'status':'failed','error':'群通知消息格式无效，本群未发送'}
+            payload['message'] = mentions + message
         return _call_qq(api_url,endpoint,payload)
     from services.message_templates import notification_parts, qq_text
     parts = notification_parts(message)
     media = parts['media']
-    segments = [{"type":"text","data":{"text":qq_text(parts)}}]
+    segments = mentions + [{"type":"text","data":{"text":qq_text(parts)}}]
     files = []
     shared = os.environ.get("QQ_UPLOAD_ROOT","")
     for item in media:

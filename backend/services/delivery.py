@@ -7,6 +7,7 @@ from services.private_settings import read_settings, write_settings, settings_lo
 class DeliverySelection(BaseModel):
     group_ids: list[str] | None = Field(default=None, max_length=10)
     recipient_ids: list[int] | None = Field(default=None, max_length=200)
+    at_all: bool = Field(default=False, strict=True)
 
     @field_validator('recipient_ids')
     @classmethod
@@ -54,11 +55,13 @@ def send_groups(cfg, message, selection):
     results = []
     for gid in requested:
         try:
-            result = _send_qq_msg(cfg.api_url, 'send_group_msg', {'group_id': int(gid), 'message': message})
+            result = _send_qq_msg(cfg.api_url, 'send_group_msg', {'group_id': int(gid), 'message': message, 'at_all': selection.at_all})
             ok = result.get('status') == 'ok' or result.get('retcode') == 0
             results.append({'group_id': gid, 'success': ok, 'partial': bool(result.get('partial')), 'detail': '' if ok else result.get('error', '机器人未确认发送成功')})
         except HTTPException as error:
             results.append({'group_id': gid, 'success': False, 'detail': error.detail})
     sent = sum(row['success'] for row in results)
-    return {'message': f'QQ群通知完成：成功 {sent} 个群，失败 {len(results)-sent} 个群', 'sent': sent,
+    failures = [row for row in results if not row['success']]
+    detail = '；'.join(f"{row['group_id']}：{str(row.get('detail') or '机器人未确认发送成功')[:120]}" for row in failures[:2])
+    return {'message': f'QQ群通知完成：成功 {sent} 个群，失败 {len(results)-sent} 个群' + ('。'+detail if detail else ''), 'sent': sent,
             'failed': len(results)-sent, 'success': sent == len(results), 'targets': results}

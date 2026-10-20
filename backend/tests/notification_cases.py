@@ -69,6 +69,7 @@ class NotificationCases:
                     result=self.client.post(endpoint,headers=self.leader,json={'group_ids':['654321']})
                     self.assertEqual(result.status_code,200,result.text);self.assertEqual(send.call_count,1)
                     self.assertEqual(send.call_args.args[2]['group_id'],654321)
+                    self.assertIs(send.call_args.args[2]['at_all'],False)
                     self.assertEqual(self.client.post(endpoint,headers=self.leader,json={'group_ids':['987654']}).status_code,422)
                     self.assertEqual(send.call_count,1)
                 with patch('services.qq._send_qq_msg',side_effect=[{'status':'ok'},{'status':'failed','partial':True,'error':'附件发送失败'}]):
@@ -97,6 +98,58 @@ class NotificationCases:
                     self.assertEqual(self.client.post(endpoint,headers=self.leader,json={'recipient_ids':[2]}).status_code,409);send.assert_not_called()
             finally:self.client.delete(f'/api/file-tasks/{task}',headers=self.admin)
 
+    def test_notify_at_all_is_structured_and_preserves_multiple_images(self):
+        from config import UPLOAD_DIR
+        import uuid
+        paths=[]
+        with self.delivery_fixture():
+            folder=Path(UPLOAD_DIR)/'rich';folder.mkdir(exist_ok=True)
+            for _ in range(2):
+                path=folder/(uuid.uuid4().hex+'.webp');path.write_bytes(b'small-image');paths.append(path)
+            notice=self._ai_notice('<p>[CQ:at,qq=all]正文</p>'+''.join(f'<img src="/static/rich/{path.name}">' for path in paths))
+            def provider(url,endpoint,payload):
+                if endpoint=='get_group_at_all_remain':return {'status':'ok','data':{'can_at_all':True,'remain_at_all_count_for_group':2,'remain_at_all_count_for_uin':2}}
+                return {'status':'ok'}
+            try:
+                for enabled in (False,True):
+                    with patch.dict('os.environ',QQ_UPLOAD_ROOT='/app/class-uploads'),patch('services.qq._call_qq',side_effect=provider) as call:
+                        response=self.client.post(f'/api/qq/notice/{notice}/notify',headers=self.leader,json={'group_ids':['123456'],'at_all':enabled})
+                        self.assertEqual(response.status_code,200,response.text);self.assertEqual(response.json()['sent'],1)
+                        self.assertEqual([item.args[1] for item in call.call_args_list],(['get_group_at_all_remain','send_group_msg'] if enabled else ['send_group_msg']))
+                        payload=call.call_args.args[2];self.assertNotIn('at_all',payload)
+                        segments=payload['message'];self.assertEqual(sum(item['type']=='at' for item in segments),int(enabled))
+                        self.assertEqual(sum(item['type']=='image' for item in segments),2)
+                        if enabled:self.assertEqual(segments[0],{'type':'at','data':{'qq':'all'}})
+                self.assertEqual(self.client.post(f'/api/qq/notice/{notice}/notify',headers=self.leader,json={'at_all':'false'}).status_code,422)
+            finally:
+                self.client.delete(f'/api/notices/{notice}',headers=self.admin)
+                for path in paths:path.unlink(missing_ok=True)
+
+    def test_notify_at_all_denied_or_exhausted_never_sends_plain_notification(self):
+        with self.delivery_fixture():
+            notice=self._ai_notice('<p>测试通知</p>')
+            try:
+                for result in [
+                    {'status':'failed'},
+                    {'status':'ok','data':{'can_at_all':False}},
+                    {'status':'ok','data':{'can_at_all':True,'remain_at_all_count_for_group':0}},
+                    {'status':'ok','data':{'can_at_all':True,'remain_at_all_count_for_uin':0}},
+                ]:
+                    with patch('services.qq._call_qq',return_value=result) as call:
+                        response=self.client.post(f'/api/qq/notice/{notice}/notify',headers=self.leader,json={'group_ids':['123456'],'at_all':True})
+                        self.assertEqual(response.status_code,200,response.text);self.assertEqual(response.json()['failed'],1)
+                        self.assertIn('本群未发送',response.json()['message']);self.assertEqual(call.call_count,1)
+                        self.assertEqual(call.call_args.args[1],'get_group_at_all_remain')
+            finally:self.client.delete(f'/api/notices/{notice}',headers=self.admin)
+
+    def test_notify_at_all_never_leaks_into_private_reminders(self):
+        from services.qq import _send_qq_msg
+        with patch('services.qq._call_qq',return_value={'status':'ok'}) as call:
+            _send_qq_msg('http://napcat:3001','send_private_msg',{'user_id':123456,'message':'私信提醒','at_all':True})
+            self.assertEqual(call.call_count,1);self.assertEqual(call.call_args.args[1],'send_private_msg')
+            self.assertNotIn('at_all',call.call_args.args[2])
+            self.assertFalse(any(item['type']=='at' for item in call.call_args.args[2]['message']))
+
     def test_notify_all_group_business_endpoints_respect_selection(self):
         from datetime import datetime
         from database import SessionLocal
@@ -108,8 +161,9 @@ class NotificationCases:
             try:
                 for kind,uid in zip(('survey','group-project','activity','class-meeting'),ids):
                     with patch('services.qq._send_qq_msg',return_value={'status':'ok'}) as send:
-                        response=self.client.post(f'/api/qq/{kind}/{uid}/notify',headers=self.leader,json={'group_ids':['123456']})
+                        response=self.client.post(f'/api/qq/{kind}/{uid}/notify',headers=self.leader,json={'group_ids':['123456'],'at_all':True})
                         self.assertEqual(response.status_code,200,response.text);self.assertEqual(send.call_count,1)
+                        self.assertIs(send.call_args.args[2]['at_all'],True)
             finally:
                 with SessionLocal() as db:
                     for model,uid in zip((Survey,GroupProject,Activity,ClassMeeting),ids):db.delete(db.get(model,uid))
